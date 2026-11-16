@@ -1,0 +1,73 @@
+/* Shared light palette: opaque surfaces keep the workshop image from reducing contrast. */
+body.light-theme[data-theme^="light-"] {
+    --bg-main: #f1f5f9;
+    --bg-header: #f8fafc;
+    --bg-nav: #eef2f6;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --table-bg: #ffffff;
+    --text-color: #17212e;
+    --text-muted: #334155;
+    --border-color: #94a3b8;
+    --metal-border: #64748b;
+    --accent-contrast: #ffffff;
+    --workspace-backdrop: linear-gradient(#f1f5f9f5, #f1f5f9f5);
+}
+.light-theme .tab-content th { background: #e2e8f0; color: #17212e; }
+.light-theme .tab-content td { color: var(--text-color); }
+.light-theme .tab-content .btn-action,
+.light-theme .modal-content .btn-action { background: #334155; color: #fff; border-color: #334155; }
+.light-theme .tab-content form > .btn-action[type="submit"],
+.light-theme #citas > .form-grid .btn-action { background: var(--accent); color: #fff; border-color: var(--accent); }
+.light-theme .tab-content .btn-action:hover,
+.light-theme .modal-content .btn-action:hover { background: var(--accent-hover); color: #fff; }
+.light-theme .agenda-item-box { background: #f8fafc; color: var(--text-color); }
+.light-theme .suggestion-item { background: #fff; color: #17212e; }
+.light-theme .suggestion-item:hover { background: #e2e8f0; }
+.light-theme input:focus-visible, .light-theme select:focus-visible,
+.light-theme textarea:focus-visible, .light-theme button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px;
+}
+.light-theme .sidebar-brand-hero { background: #fff; box-shadow: 0 4px 12px #0f172a14; }
+.light-theme .tab-content .industrial-panel,
+.light-theme .tab-content .card-stats { box-shadow: 0 4px 16px #0f172a0a; }
+.sidebar-user-block {
+    flex-shrink: 0;
+    padding: 18px 14px;
+    gap: 12px;
+    border-radius: 12px;
+}
+.sidebar-greeting-badge { font-size: 14px; line-height: 1.45; }
+.sidebar-user-details { gap: 8px; min-width: 0; }
+.sidebar-user-name { font-size: 17px; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.sidebar-user-role-pill { font-size: 11px; padding: 4px 8px; line-height: 1.4; }
+.sidebar-slogan { font-size: 12px; line-height: 1.6; padding-top: 10px; }
+.btn-sidebar-backup-exit { min-height: 48px; padding: 10px; font-size: 12px; line-height: 1.4; }
+.exit-dialog {
+    max-width: min(520px, 90vw);
+    padding: 24px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-main);
+    color: var(--text-color);
+}
+.exit-dialog::backdrop { background: #03060ac7; }
+.exit-dialog h2 { margin-top: 0; }
+.exit-dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.exit-dialog-actions button {
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-color);
+    cursor: pointer;
+}
+.exit-dialog-actions button:first-child { background: var(--accent); color: var(--accent-contrast); }
+@media (max-width: 760px) {
+    .app-container > nav { flex-wrap: wrap; max-height: 34vh; overflow-y: auto; }
+    .sidebar-brand-hero, .sidebar-label { display: none; }
+    .sidebar-user-block { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 12px; gap: 6px; }
+    .sidebar-user-details { flex-direction: row; flex-wrap: wrap; align-items: center; }
+    .sidebar-user-name { font-size: 15px; }
+    .sidebar-slogan { padding-top: 5px; }
+}
