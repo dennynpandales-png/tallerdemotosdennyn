@@ -1,896 +1,199 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HIDEP-SOFT - Panel Táctil para Mecánicos y Tablets</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#080b11">
+    <title>Órdenes del mecánico | HIDEP-SOFT-SG - Taller de Motos</title>
+    <link rel="icon" href="icon.ico">
+    <link rel="stylesheet" href="tema-taller.css">
+    <script defer src="identidad.js"></script>
+    <script src="/dispositivo.js"></script>
     <style>
-        :root {
-            --bg-main: #0a0e14;
-            --bg-card: #141c28;
-            --bg-input: #0b111b;
-            --accent: #f59e0b;
-            --accent-hover: #d97706;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border-color: #334155;
-            --success: #22c55e;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-        }
-
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --ready: #a3e8bc; }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { width: 100%; max-width: 100vw; overflow-x: clip; }
         body {
             margin: 0;
-            padding: 12px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            min-height: 100vh;
+            color: var(--sg-text);
+            font-size: 1rem;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
         }
-
-        .container { max-width: 640px; margin: 0 auto; }
-
-        /* HEADER TÁCTIL */
-        .mobile-header {
-            background: linear-gradient(145deg, #182232 0%, #0d1420 100%);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-            border-radius: 14px;
-            padding: 14px 16px;
-            margin-bottom: 14px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .header-brand svg { width: 38px; height: 38px; flex-shrink: 0; }
-        .header-title { font-size: 16px; font-weight: 900; color: var(--accent); letter-spacing: 0.5px; }
-        .header-subtitle { font-size: 10px; color: var(--text-muted); }
-
-        .connection-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            background: rgba(34, 197, 94, 0.15);
-            color: #4ade80;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            white-space: nowrap;
-        }
-
-        .pulse-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #22c55e;
-            box-shadow: 0 0 8px #22c55e;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
-        }
-
-        /* PERFIL DE MECÁNICO */
-        .mechanic-selector-box {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 10px 14px;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .mechanic-selector-box label { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
-        .mechanic-selector-box select {
-            flex: 1;
-            padding: 8px 10px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-input);
-            color: var(--text-main);
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        /* BUSCADOR ÁGIL */
-        .search-box {
-            position: relative;
-            margin-bottom: 14px;
-        }
-
-        .search-input {
+        [hidden] { display: none !important; }
+        .workspace {
             width: 100%;
-            padding: 12px 14px 12px 38px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-card);
-            color: var(--text-main);
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.2s;
+            max-width: 100vw;
+            min-width: 0;
+            padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+                max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+            overflow-x: clip;
         }
-        .search-input:focus { border-color: var(--accent); }
-        .search-icon { position: absolute; left: 12px; top: 12px; font-size: 15px; color: var(--text-muted); }
-
-        /* TABS DE FILTRO */
-        .filter-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .filter-btn {
-            flex: 1;
-            padding: 9px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-card);
-            color: var(--text-muted);
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
+        .mechanic-layout { width: 100%; min-width: 0; margin-inline: auto; }
+        .stack, .order, .order-section, form { display: flex; flex-direction: column; min-width: 0; }
+        .stack, .order, .order-section, form { gap: .75rem; }
+        .top { display: grid; gap: .5rem; padding: .25rem 0 .5rem; }
+        .brand {
+            width: min(100%, 13rem);
+            margin: 0 auto .5rem;
+            padding: .75rem;
             text-align: center;
+            border: 1px solid #f59e0b52;
+            border-radius: .5rem;
+            background: linear-gradient(#f59e0b26, #0a0e1480);
         }
-        .filter-btn.active {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #111827;
-        }
-
-        /* TARJETAS DE ÓRDENES */
-        .orders-list { display: flex; flex-direction: column; gap: 12px; }
-
-        .order-card {
-            background: linear-gradient(145deg, #141c28 0%, #0e141e 100%);
-            border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 14px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-            transition: border-color 0.2s;
-        }
-        .order-card.ready { border-color: rgba(34, 197, 94, 0.4); }
-
-        .card-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-        }
-
-        .order-badge {
-            background: rgba(245, 158, 11, 0.18);
-            border: 1px solid rgba(245, 158, 11, 0.35);
-            color: var(--accent);
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-size: 11px;
+        .brand img { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 8px #f59e0b55); }
+        .brand-name { display: block; color: var(--sg-accent); font-size: 1.15rem; font-weight: 900; line-height: 1.2; }
+        .brand-subtitle { display: block; color: var(--sg-text); font-size: .65rem; font-weight: 700; letter-spacing: .08em; }
+        .brand-tag {
+            display: inline-block;
+            margin-top: .25rem;
+            padding: .05rem .55rem;
+            border: 1px solid #f59e0b61;
+            border-radius: 1rem;
+            background: #f59e0b26;
+            color: var(--sg-accent);
+            font-size: .65rem;
             font-weight: 800;
         }
-
-        .status-badge {
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 700;
-        }
-        .status-badge.in-process { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-        .status-badge.ready { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
-
-        .card-vehicle {
-            font-size: 17px;
-            font-weight: 800;
-            color: var(--text-main);
-            margin: 4px 0 2px;
-        }
-
-        .card-client {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-        }
-
-        .card-details {
-            background: rgba(11, 17, 27, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            padding: 8px 10px;
-            font-size: 11.5px;
-            line-height: 1.45;
-            margin-bottom: 12px;
-            color: #cbd5e1;
-        }
-
-        /* BOTONES DE ACCIÓN RÁPIDA */
-        .actions-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-
-        .btn-touch {
-            padding: 10px 12px;
-            border-radius: 10px;
-            border: 0;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: opacity 0.15s, transform 0.15s;
-        }
-        .btn-touch:active { transform: scale(0.97); }
-
-        .btn-parts { background: #0284c7; color: white; }
-        .btn-work { background: #475569; color: white; }
-        .btn-camera { background: #d97706; color: white; }
-        .btn-ready { background: #16a34a; color: white; grid-column: span 2; padding: 12px; font-size: 13px; }
-
-        /* MODALES TÁCTILES */
-        .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0, 0, 0, 0.85);
-            display: none;
-            align-items: flex-end;
-            justify-content: center;
-            z-index: 1000;
-            padding: 12px;
-        }
-        .modal-overlay.open { display: flex; }
-
-        .modal-sheet {
+        h1, h2, h3, p, dl, dd, ul, figure { margin: 0; }
+        h1 { margin-top: .125rem; font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1.2; }
+        h2 { font-size: 1.375rem; line-height: 1.2; }
+        h3 { font-size: 1.0625rem; line-height: 1.35; }
+        .connection, .hint, figcaption { color: var(--sg-muted); font-size: .875rem; }
+        .order { padding: clamp(.75rem, 4vw, 1.25rem); border-radius: .75rem; }
+        .order-section { min-width: 0; }
+        .order-section + .order-section { border-top: 1px solid var(--sg-border-subtle); padding-top: .875rem; }
+        .order-caption { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .state { padding: .2rem .55rem; border-radius: .5rem; background: #3b2b16; color: #ffd08b; font-size: .875rem; font-weight: 700; }
+        .state.done { background: #1a3c30; color: var(--ready); }
+        .facts { display: grid; gap: .45rem; }
+        dt { color: var(--sg-muted); font-size: .875rem; }
+        dd { font-weight: 550; white-space: pre-wrap; }
+        label { display: grid; min-width: 0; gap: .3rem; font-weight: 600; }
+        input, button, select, textarea {
             width: 100%;
-            max-width: 540px;
-            background: #141c28;
-            border: 1px solid var(--border-color);
-            border-radius: 18px;
-            padding: 18px;
-            max-height: 85vh;
-            overflow-y: auto;
-            animation: slideUp 0.25s ease-out;
+            max-width: 100%;
+            min-width: 0;
+            min-height: 46px;
+            border: 1px solid var(--sg-border-subtle);
+            border-radius: .6rem;
+            padding: .55rem .7rem;
+            background: var(--sg-input);
+            color: var(--sg-text);
+            font: inherit;
         }
-
-        @keyframes slideUp {
-            from { transform: translateY(40px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        select { text-overflow: ellipsis; }
+        textarea { resize: vertical; }
+        button { white-space: normal; overflow-wrap: anywhere; cursor: pointer; font-weight: 700; }
+        button:disabled { opacity: .65; cursor: wait; }
+        :focus-visible { outline: 2px solid var(--sg-accent); outline-offset: 2px; }
+        .secondary { background: #253447; }
+        .secondary:hover:not(:disabled) { border-color: var(--sg-accent); }
+        .primary { background: var(--sg-accent); color: #241708; border-color: var(--sg-accent); }
+        .parts { list-style: none; padding: 0; display: grid; gap: .35rem; }
+        .parts li { background: var(--sg-input); padding: .45rem .6rem; border-radius: .45rem; }
+        .gallery { display: grid; gap: .65rem; }
+        .gallery figure { min-width: 0; }
+        .gallery img, dialog video { display: block; max-width: 100%; height: auto; }
+        .gallery img { width: min(100%, 18rem); border-radius: .55rem; background: var(--sg-input); }
+        .feedback:empty { display: none; }
+        .feedback[data-error="true"] { color: #ffb4aa; }
+        dialog { width: min(calc(100% - 2rem), 32rem); max-width: 100%; max-height: 90dvh; overflow-y: auto; }
+        dialog::backdrop { background: #000a; }
+        #stockAlert { background: var(--sg-panel); color: var(--sg-text); border: 1px solid #ef8b80; border-radius: 1rem; padding: 1rem; }
+        #stockAlert p { margin-block: .75rem; }
+        .mechanic-tools { padding: 1rem; border-radius: .75rem; }
+        @media (max-width: 768px) {
+            html, body, .workspace { overflow-x: hidden; }
+            .order, .mechanic-layout { display: flex; flex-direction: column; }
+            .fondo-mecanico {
+                --sg-workshop-image: none;
+                --sg-workshop-shade: linear-gradient(155deg, #18202c, var(--sg-base) 72%);
+            }
         }
-
-        .modal-title {
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--accent);
-            margin: 0 0 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        html.touch-device .fondo-mecanico {
+            --sg-workshop-image: none;
+            --sg-workshop-shade: linear-gradient(155deg, #18202c, var(--sg-base) 72%);
         }
-
-        .modal-close-btn {
-            background: transparent;
-            border: 0;
-            color: var(--text-muted);
-            font-size: 18px;
-            cursor: pointer;
+        @media (width > 768px) {
+            .order { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+            .order-section + .order-section { border-top: 0; padding-top: 0; }
+            .order-section[data-parts-section] { border-inline-start: 1px solid var(--sg-border-subtle); padding-inline-start: 1rem; }
+            .order-section[data-evidence], .order-section[data-order-close] {
+                grid-column: 1 / -1;
+                border-top: 1px solid var(--sg-border-subtle);
+                padding-top: 1rem;
+            }
+            .gallery { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+            .order-section[data-evidence] > .secondary, .order-section[data-order-close] > .primary {
+                width: fit-content;
+                min-width: min(100%, 13rem);
+            }
         }
-
-        .touch-input-group {
-            margin-bottom: 12px;
+        html.touch-device .mechanic-layout, html.touch-device .order { display: flex; flex-direction: column; }
+        html.touch-device .workspace { overflow-x: hidden; }
+        html.touch-device .order .order-section + .order-section {
+            border-inline-start: 0;
+            border-top: 1px solid var(--sg-border-subtle);
+            padding: .875rem 0 0;
         }
-        .touch-input-group label {
-            display: block;
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-        }
-        .touch-input {
-            width: 100%;
-            padding: 11px 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-input);
-            color: var(--text-main);
-            font-size: 14px;
-        }
-
-        /* SUGERENCIAS DE REPUESTOS */
-        .suggestions-touch-box {
-            max-height: 160px;
-            overflow-y: auto;
-            background: var(--bg-input);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            margin-top: 4px;
-            display: none;
-        }
-        .suggestion-touch-item {
-            padding: 10px 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            font-size: 12px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .suggestion-touch-item:active { background: rgba(245, 158, 11, 0.2); }
-
-        /* FOTOS SUBIDAS */
-        .photos-touch-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .photo-touch-thumb {
-            width: 100%;
-            height: 90px;
-            border-radius: 8px;
-            object-fit: cover;
-            border: 1px solid var(--border-color);
-        }
-
-        /* ALARMA VISUAL */
-        .alarm-modal-box {
-            background: #450a0a;
-            border: 2px solid #ef4444;
-            border-radius: 16px;
-            padding: 20px;
-            text-align: center;
-            color: #fee2e2;
+        html.touch-device .gallery { grid-template-columns: minmax(0, 1fr); }
+        html.touch-device .order .order-section > button { width: 100%; }
+        @media (min-width: 70rem) {
+            html:not(.touch-device) .mechanic-layout {
+                display: grid;
+                grid-template-columns: minmax(13rem, 17%) minmax(0, 1fr);
+                align-items: start;
+                gap: clamp(1rem, 2.5vw, 3rem);
+            }
+            html:not(.touch-device) .mechanic-tools {
+                position: sticky;
+                top: 1rem;
+            }
+            html:not(.touch-device) .order { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            html:not(.touch-device) .order-section[data-evidence] {
+                grid-column: auto;
+                border-top: 0;
+                border-inline-start: 1px solid var(--sg-border-subtle);
+                padding: 0 0 0 1rem;
+            }
         }
     </style>
+    <script defer src="/camara-evidencia.js"></script>
+    <script defer src="/mecanico.js"></script>
 </head>
-<body>
-    <div class="container">
-        <!-- HEADER TÁCTIL -->
-        <div class="mobile-header">
-            <div class="header-brand">
-                <svg viewBox="0 0 160 90" aria-hidden="true">
-                    <circle cx="32" cy="62" r="21" fill="none" stroke="#64748b" stroke-width="6"/>
-                    <circle cx="32" cy="62" r="6" fill="#f59e0b"/>
-                    <circle cx="128" cy="62" r="21" fill="none" stroke="#64748b" stroke-width="6"/>
-                    <circle cx="128" cy="62" r="6" fill="#f59e0b"/>
-                    <path d="M 32 62 L 60 48 L 86 56 L 102 46 L 128 62" fill="none" stroke="#94a3b8" stroke-width="4"/>
-                    <path d="M 52 46 C 58 35, 78 32, 92 38 C 104 42, 112 40, 118 46 L 108 50 Z" fill="#f59e0b"/>
-                    <path d="M 128 62 L 108 26 L 98 24" fill="none" stroke="#cbd5e1" stroke-width="3"/>
-                </svg>
-                <div>
-                    <div class="header-title">HIDEP-SOFT</div>
-                    <div class="header-subtitle">Panel Operario & Tablet</div>
-                </div>
-            </div>
-            <div class="connection-pill" id="connStatus">
-                <span class="pulse-dot"></span> Conectado
-            </div>
-        </div>
-
-        <!-- PERFIL DEL MECÁNICO -->
-        <div class="mechanic-selector-box">
-            <label for="selectMecanicoMovil">🔧 Operario:</label>
-            <select id="selectMecanicoMovil" onchange="seleccionarPerfilMecanico(this.value)">
-                <option value="">Cargando mecánicos...</option>
-            </select>
-        </div>
-
-        <!-- BUSCADOR ÁGIL -->
-        <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="inputBuscarMovil" class="search-input" placeholder="Buscar por placa, orden # o cliente..." oninput="filtrarOrdenesMovil()">
-        </div>
-
-        <!-- TABS DE FILTRO -->
-        <div class="filter-tabs">
-            <button class="filter-btn active" id="btnFiltroAsignadas" onclick="cambiarFiltroOrdenes('mis')">Mis Órdenes</button>
-            <button class="filter-btn" id="btnFiltroTodas" onclick="cambiarFiltroOrdenes('todas')">Todas Activas</button>
-        </div>
-
-        <!-- LISTA DE ÓRDENES -->
-        <div class="orders-list" id="contenedorOrdenesMovil">
-            <div style="text-align: center; color: var(--text-muted); padding: 30px;">Cargando órdenes del taller...</div>
-        </div>
-    </div>
-
-    <!-- MODAL 1: REPORTAR REPUESTO SIN APROBACIÓN (DESCUENTO DIRECTO + CONTROL STOCK) -->
-    <div class="modal-overlay" id="modalRepuesto">
-        <div class="modal-sheet">
-            <div class="modal-title">
-                <span>📦 Reportar Repuesto</span>
-                <button class="modal-close-btn" onclick="cerrarModal('modalRepuesto')">✕</button>
-            </div>
-            <input type="hidden" id="modalRepuestoOrdenId">
-            <div class="touch-input-group">
-                <label for="buscarRepuestoInput">Buscar Repuesto en Inventario:</label>
-                <input type="text" id="buscarRepuestoInput" class="touch-input" placeholder="Nombre o código de referencia..." oninput="buscarSugerenciasRepuesto(this.value)">
-                <div class="suggestions-touch-box" id="sugerenciasRepuestosTouch"></div>
-            </div>
-            <input type="hidden" id="selectedRepuestoId">
-            <div class="touch-input-group">
-                <label for="repuestoSeleccionadoNombre">Repuesto Seleccionado:</label>
-                <input type="text" id="repuestoSeleccionadoNombre" class="touch-input" readonly placeholder="Seleccione arriba..." style="color: var(--accent); font-weight: bold;">
-            </div>
-            <div class="touch-input-group">
-                <label for="cantidadRepuestoInput">Cantidad Requerida:</label>
-                <input type="number" id="cantidadRepuestoInput" class="touch-input" value="1" min="1">
-            </div>
-            <div id="msgModalRepuesto" style="font-size: 11px; margin-bottom: 10px; font-weight: 700;"></div>
-            <button class="btn-touch btn-parts" style="width: 100%; padding: 13px;" onclick="guardarRepuestoDirecto()">➕ Descontar de Inventario y Cargar</button>
-        </div>
-    </div>
-
-    <!-- MODAL 2: REPORTAR AVANCE DE TRABAJO -->
-    <div class="modal-overlay" id="modalAvance">
-        <div class="modal-sheet">
-            <div class="modal-title">
-                <span>📝 Reportar Trabajos Realizados</span>
-                <button class="modal-close-btn" onclick="cerrarModal('modalAvance')">✕</button>
-            </div>
-            <input type="hidden" id="modalAvanceOrdenId">
-            <div class="touch-input-group">
-                <label for="avanceTextoInput">Descripción del Trabajo Realizado:</label>
-                <textarea id="avanceTextoInput" class="touch-input" rows="4" placeholder="Ej. Cambio de aceite, calibración de válvulas, tensión de cadena..."></textarea>
-            </div>
-            <div id="msgModalAvance" style="font-size: 11px; margin-bottom: 10px; font-weight: 700;"></div>
-            <button class="btn-touch btn-work" style="width: 100%; padding: 13px;" onclick="guardarAvanceTrabajo()">💾 Guardar Informe de Trabajo</button>
-        </div>
-    </div>
-
-    <!-- MODAL 3: REGISTRO FOTOGRÁFICO DE EVIDENCIA -->
-    <div class="modal-overlay" id="modalFotos">
-        <div class="modal-sheet">
-            <div class="modal-title">
-                <span>📷 Registro Fotográfico</span>
-                <button class="modal-close-btn" onclick="cerrarModal('modalFotos')">✕</button>
-            </div>
-            <input type="hidden" id="modalFotosOrdenId">
-            <div class="touch-input-group">
-                <label for="inputCamaraFoto">Tomar Foto con Cámara o Elegir de Galería:</label>
-                <input type="file" id="inputCamaraFoto" accept="image/*" capture="environment" class="touch-input" onchange="procesarFotoTomada(event)">
-            </div>
-            <div class="touch-input-group">
-                <label for="inputDescFoto">Nota o Descripción:</label>
-                <input type="text" id="inputDescFoto" class="touch-input" placeholder="Ej. Estado inicial del disco de freno">
-            </div>
-            <div id="msgModalFoto" style="font-size: 11px; margin-bottom: 10px; font-weight: 700;"></div>
-            <div id="galeriaFotosOrden" class="photos-touch-grid"></div>
-        </div>
-    </div>
-
-    <!-- MODAL 4: ALARMA VISUAL DE STOCK INSUFICIENTE -->
-    <div class="modal-overlay" id="modalAlarmaStock">
-        <div class="modal-sheet" style="padding: 0; background: transparent; border: 0;">
-            <div class="alarm-modal-box">
-                <div style="font-size: 38px; margin-bottom: 8px;">⚠️</div>
-                <h3 style="margin: 0 0 8px; font-size: 18px; font-weight: 900; color: #fca5a5;">¡STOCK INSUFICIENTE!</h3>
-                <p id="alarmaStockDetalle" style="font-size: 13px; line-height: 1.4; margin-bottom: 14px;"></p>
-                <div style="font-size: 11px; color: #fecaca; margin-bottom: 16px;">
-                    📢 Se ha notificado inmediatamente a Recepción y Administración.
-                </div>
-                <button class="btn-touch" style="background: #ef4444; color: white; width: 100%; padding: 12px;" onclick="cerrarModal('modalAlarmaStock')">Entendido</button>
+<body class="fondo-taller fondo-mecanico">
+    <main class="workspace">
+        <div class="mechanic-layout stack">
+            <aside class="mechanic-tools stack panel-taller" aria-label="Sesión y filtros de órdenes">
+              <header class="top">
+                <figure class="brand">
+                  <img src="motocicleta-taller.svg" alt="" width="160" height="90">
+                  <figcaption>
+                    <strong class="brand-name">HIDEP-SOFT-SG</strong>
+                    <span class="brand-subtitle">SISTEMA DE GESTIÓN</span>
+                    <span class="brand-tag">TALLER DE MOTOS</span>
+                  </figcaption>
+                </figure>
+                <h1>Órdenes del mecánico</h1>
+                <p id="connStatus" class="connection" role="status">Conectando…</p>
+                <button type="button" class="secondary" id="salirMecanico">Cerrar sesión</button>
+              </header>
+              <label>
+                Buscar orden
+                <input type="search" id="inputBuscarMovil" placeholder="Número, placa, modelo o cliente" autocomplete="off">
+              </label>
+            </aside>
+            <div id="contenedorOrdenesMovil" class="stack">
+                <p role="status">Cargando órdenes…</p>
             </div>
         </div>
-    </div>
-
-    <script>
-        let ordenesMovilCache = [];
-        let inventarioMovilCache = [];
-        let usuariosMovilCache = [];
-        let filtroActual = 'mis'; // 'mis' o 'todas'
-
-        // ===== INICIALIZACIÓN =====
-        document.addEventListener('DOMContentLoaded', async () => {
-            if (!(await cargarUsuariosOperarios())) return;
-            await cargarInventarioMovil();
-            await cargarOrdenesMovil();
-            iniciarSSE();
-        });
-
-        // ===== CARGAR OPERARIOS =====
-        async function cargarUsuariosOperarios() {
-            try {
-                const sessionResponse = await fetch('/api/session');
-                if (!sessionResponse.ok) { window.location.replace('/'); return false; }
-                const session = await sessionResponse.json();
-                const res = await fetch('/api/usuarios');
-                if (!res.ok) throw new Error('No se pudieron consultar los operarios.');
-                usuariosMovilCache = await res.json();
-                const select = document.getElementById('selectMecanicoMovil');
-                select.innerHTML = '<option value="">-- Ver como Mecánico / Operario --</option>';
-                
-                const mecanicos = usuariosMovilCache.filter(u => u.rol === 'Mecanico');
-                const lista = mecanicos.length > 0 ? mecanicos : usuariosMovilCache;
-                
-                lista.forEach(u => {
-                    select.innerHTML += `<option value="${u.id}">${u.nombre} (${u.rol})</option>`;
-                });
-
-                const isMechanic = ['Mecanico', 'Mecánico'].includes(session.rol);
-                if (isMechanic) { select.disabled = true; document.getElementById('btnFiltroTodas').hidden = true; }
-                const savedId = isMechanic ? session.id : localStorage.getItem('hidep_operario_id');
-                if (savedId) {
-                    select.value = savedId;
-                }
-                return true;
-            } catch (e) {
-                console.error('Error al cargar operarios:', e);
-            }
-        }
-
-        function seleccionarPerfilMecanico(id) {
-            localStorage.setItem('hidep_operario_id', id);
-            renderizarOrdenes();
-        }
-
-        function cambiarFiltroOrdenes(tipo) {
-            filtroActual = tipo;
-            document.getElementById('btnFiltroAsignadas').classList.toggle('active', tipo === 'mis');
-            document.getElementById('btnFiltroTodas').classList.toggle('active', tipo === 'todas');
-            renderizarOrdenes();
-        }
-
-        // ===== CARGAR Y RENDERIZAR ÓRDENES =====
-        async function cargarOrdenesMovil() {
-            try {
-                const res = await fetch('/api/ordenes');
-                ordenesMovilCache = await res.json();
-                renderizarOrdenes();
-            } catch (e) {
-                console.error('Error al cargar órdenes:', e);
-            }
-        }
-
-        function renderizarOrdenes() {
-            const contenedor = document.getElementById('contenedorOrdenesMovil');
-            const operarioId = document.getElementById('selectMecanicoMovil').value;
-            const query = (document.getElementById('inputBuscarMovil')?.value || '').toLowerCase().trim();
-
-            let filtradas = ordenesMovilCache.filter(o => o.estado === 'En proceso' || o.estado === 'Listo para entrega');
-
-            // Filtrar por mecánico asignado si aplica
-            if (filtroActual === 'mis' && operarioId) {
-                filtradas = filtradas.filter(o => Number(o.mecanico_id) === Number(operarioId));
-            }
-
-            // Filtrar por búsqueda
-            if (query) {
-                filtradas = filtradas.filter(o => 
-                    (o.moto_placa && o.moto_placa.toLowerCase().includes(query)) ||
-                    (o.id && o.id.toString().includes(query)) ||
-                    (o.cliente_nombre && o.cliente_nombre.toLowerCase().includes(query)) ||
-                    (o.moto_marca && o.moto_marca.toLowerCase().includes(query))
-                );
-            }
-
-            if (filtradas.length === 0) {
-                contenedor.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 40px 10px; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color);">
-                    <div style="font-size: 28px; margin-bottom: 6px;">🏍️</div>
-                    <b>No hay órdenes activas encontradas</b>
-                    <div style="font-size: 11px; margin-top: 4px;">Cambia el filtro a "Todas Activas" o verifica tu perfil de operario.</div>
-                </div>`;
-                return;
-            }
-
-            contenedor.innerHTML = filtradas.map(o => {
-                const esListo = o.estado === 'Listo para entrega';
-                return `
-                    <div class="order-card ${esListo ? 'ready' : ''}">
-                        <div class="card-top">
-                            <span class="order-badge">#ORD-${o.id}</span>
-                            <span class="status-badge ${esListo ? 'ready' : 'in-process'}">
-                                ${esListo ? '✅ Listo para entrega' : '⚙️ En Reparación'}
-                            </span>
-                        </div>
-                        <div class="card-vehicle">${o.moto_placa} · <span style="font-size: 14px; font-weight: normal; color: var(--text-muted);">${o.moto_marca || 'Motocicleta'}</span></div>
-                        <div class="card-client">👤 Cliente: <b>${o.cliente_nombre || 'N/A'}</b> · Mecánico: <b>${o.mecanico_nombre || 'Sin asignar'}</b></div>
-                        
-                        <div class="card-details">
-                            <div><b>Motivo / Diagnóstico:</b> ${o.motivo_ingreso || 'Mantenimiento preventivo'}</div>
-                            <div style="margin-top: 3px;"><b>Trabajo Reportado:</b> ${o.trabajo_realizado || 'En proceso'}</div>
-                        </div>
-
-                        <div class="actions-grid">
-                            <button class="btn-touch btn-parts" onclick="abrirModalRepuesto(${o.id})">📦 Repuesto</button>
-                            <button class="btn-touch btn-work" onclick="abrirModalAvance(${o.id}, '${(o.trabajo_realizado || '').replace(/'/g, "\\'")}')">📝 Avance</button>
-                            <button class="btn-touch btn-camera" onclick="abrirModalFotos(${o.id})">📷 Fotos</button>
-                            <button class="btn-touch btn-ready" onclick="marcarOrdenLista(${o.id}, '${esListo ? 'En proceso' : 'Listo para entrega'}')">
-                                ${esListo ? '🔄 Regresar a "En Proceso"' : '✅ Marcar LISTO para entrega'}
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function filtrarOrdenesMovil() {
-            renderizarOrdenes();
-        }
-
-        // ===== CARGAR INVENTARIO =====
-        async function cargarInventarioMovil() {
-            try {
-                const res = await fetch('/api/inventario');
-                inventarioMovilCache = await res.json();
-            } catch (e) {
-                console.error('Error al cargar inventario:', e);
-            }
-        }
-
-        // ===== MODAL DE REPUESTOS =====
-        function abrirModalRepuesto(ordenId) {
-            document.getElementById('modalRepuestoOrdenId').value = ordenId;
-            document.getElementById('buscarRepuestoInput').value = '';
-            document.getElementById('selectedRepuestoId').value = '';
-            document.getElementById('repuestoSeleccionadoNombre').value = '';
-            document.getElementById('cantidadRepuestoInput').value = '1';
-            document.getElementById('msgModalRepuesto').textContent = '';
-            document.getElementById('sugerenciasRepuestosTouch').style.display = 'none';
-            document.getElementById('modalRepuesto').classList.add('open');
-        }
-
-        function buscarSugerenciasRepuesto(texto) {
-            const box = document.getElementById('sugerenciasRepuestosTouch');
-            if (!texto.trim()) { box.style.display = 'none'; return; }
-            const q = texto.toLowerCase();
-            const matches = inventarioMovilCache.filter(i => 
-                (i.nombre && i.nombre.toLowerCase().includes(q)) || 
-                (i.codigo && i.codigo.toLowerCase().includes(q))
-            );
-            if (matches.length === 0) {
-                box.innerHTML = '<div style="padding: 10px; color: var(--text-muted); font-size: 11px;">No se encontraron repuestos</div>';
-                box.style.display = 'block';
-                return;
-            }
-            box.innerHTML = matches.map(m => `
-                <div class="suggestion-touch-item" onclick="seleccionarRepuestoTouch(${m.id}, '${m.nombre.replace(/'/g, "\\'")}', ${m.stock})">
-                    <div>
-                        <b>${m.nombre}</b> <small style="color:var(--text-muted);">[${m.codigo || 'N/A'}]</small>
-                    </div>
-                    <span style="font-weight: 800; color: ${m.stock > 0 ? '#4ade80' : '#ef4444'};">
-                        Stock: ${m.stock}
-                    </span>
-                </div>
-            `).join('');
-            box.style.display = 'block';
-        }
-
-        function seleccionarRepuestoTouch(id, nombre, stock) {
-            document.getElementById('selectedRepuestoId').value = id;
-            document.getElementById('repuestoSeleccionadoNombre').value = `${nombre} (Stock disponible: ${stock})`;
-            document.getElementById('sugerenciasRepuestosTouch').style.display = 'none';
-        }
-
-        async function guardarRepuestoDirecto() {
-            const ordenId = document.getElementById('modalRepuestoOrdenId').value;
-            const repuestoId = document.getElementById('selectedRepuestoId').value;
-            const cantidad = parseInt(document.getElementById('cantidadRepuestoInput').value, 10) || 1;
-            const msg = document.getElementById('msgModalRepuesto');
-
-            if (!repuestoId) {
-                msg.style.color = 'var(--danger)';
-                msg.textContent = 'Seleccione primero un repuesto del inventario.';
-                return;
-            }
-
-            const selectMec = document.getElementById('selectMecanicoMovil');
-            const mecanicoNombre = selectMec.options[selectMec.selectedIndex]?.text || 'Mecánico Tablet';
-
-            try {
-                const res = await fetch(`/api/ordenes/${ordenId}/repuestos`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ repuesto_id: repuestoId, cantidad, mecanico_nombre: mecanicoNombre })
-                });
-                const data = await res.json();
-
-                if (!res.ok) {
-                    if (data.stock_insuficiente) {
-                        cerrarModal('modalRepuesto');
-                        dispararAlarmaStock(data.mensaje);
-                        return;
-                    }
-                    msg.style.color = 'var(--danger)';
-                    msg.textContent = data.mensaje || 'Error al reportar repuesto.';
-                    return;
-                }
-
-                msg.style.color = 'var(--success)';
-                msg.textContent = '✅ ' + data.mensaje;
-                await cargarInventarioMovil();
-                setTimeout(() => {
-                    cerrarModal('modalRepuesto');
-                    cargarOrdenesMovil();
-                }, 1000);
-            } catch (e) {
-                msg.style.color = 'var(--danger)';
-                msg.textContent = 'Error de conexión: ' + e.message;
-            }
-        }
-
-        function dispararAlarmaStock(detalle) {
-            document.getElementById('alarmaStockDetalle').textContent = detalle;
-            document.getElementById('modalAlarmaStock').classList.add('open');
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(800, ctx.currentTime);
-                osc.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.3);
-            } catch(e) {}
-        }
-
-        // ===== MODAL DE AVANCE DE TRABAJO =====
-        function abrirModalAvance(ordenId, trabajoActual) {
-            document.getElementById('modalAvanceOrdenId').value = ordenId;
-            document.getElementById('avanceTextoInput').value = trabajoActual || '';
-            document.getElementById('msgModalAvance').textContent = '';
-            document.getElementById('modalAvance').classList.add('open');
-        }
-
-        async function guardarAvanceTrabajo() {
-            const ordenId = document.getElementById('modalAvanceOrdenId').value;
-            const texto = document.getElementById('avanceTextoInput').value.trim();
-            const msg = document.getElementById('msgModalAvance');
-
-            try {
-                const res = await fetch(`/api/ordenes/${ordenId}/reportar`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trabajo_realizado: texto })
-                });
-                if (res.ok) {
-                    msg.style.color = 'var(--success)';
-                    msg.textContent = '✅ Avance guardado y sincronizado.';
-                    setTimeout(() => {
-                        cerrarModal('modalAvance');
-                        cargarOrdenesMovil();
-                    }, 800);
-                } else {
-                    msg.style.color = 'var(--danger)';
-                    msg.textContent = 'Error al guardar.';
-                }
-            } catch (e) {
-                msg.style.color = 'var(--danger)';
-                msg.textContent = 'Error de red: ' + e.message;
-            }
-        }
-
-        // ===== MODAL Y CAPTURA DE FOTOS =====
-        function abrirModalFotos(ordenId) {
-            document.getElementById('modalFotosOrdenId').value = ordenId;
-            document.getElementById('inputDescFoto').value = '';
-            document.getElementById('msgModalFoto').textContent = '';
-            cargarFotosOrdenMovil(ordenId);
-            document.getElementById('modalFotos').classList.add('open');
-        }
-
-        async function cargarFotosOrdenMovil(ordenId) {
-            const gal = document.getElementById('galeriaFotosOrden');
-            gal.innerHTML = 'Cargando fotos...';
-            try {
-                const res = await fetch(`/api/ordenes/${ordenId}/fotos`);
-                const fotos = await res.json();
-                if (!fotos || fotos.length === 0) {
-                    gal.innerHTML = '<div style="font-size: 11px; color: var(--text-muted); padding: 10px; grid-column: span 3; text-align: center;">Sin fotos adjuntas aún.</div>';
-                    return;
-                }
-                gal.innerHTML = fotos.map(f => `
-                    <div style="text-align: center;">
-                        <img src="${f.url}" class="photo-touch-thumb" alt="Evidencia" onclick="window.open('${f.url}', '_blank')">
-                        <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">${f.descripcion || ''}</div>
-                    </div>
-                `).join('');
-            } catch (e) {
-                gal.innerHTML = 'Error al cargar fotos.';
-            }
-        }
-
-        function procesarFotoTomada(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const base64Data = e.target.result;
-                const ordenId = document.getElementById('modalFotosOrdenId').value;
-                const descripcion = document.getElementById('inputDescFoto').value.trim() || 'Evidencia de trabajo realizada';
-                const msg = document.getElementById('msgModalFoto');
-
-                msg.style.color = 'var(--warning)';
-                msg.textContent = 'Subiendo fotografía...';
-
-                try {
-                    const res = await fetch(`/api/ordenes/${ordenId}/fotos`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ imagen_base64: base64Data, descripcion })
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                        msg.style.color = 'var(--success)';
-                        msg.textContent = '✅ ¡Fotografía guardada con éxito!';
-                        cargarFotosOrdenMovil(ordenId);
-                    } else {
-                        msg.style.color = 'var(--danger)';
-                        msg.textContent = '❌ ' + (data.mensaje || 'Error al guardar foto');
-                    }
-                } catch (err) {
-                    msg.style.color = 'var(--danger)';
-                    msg.textContent = 'Error al subir foto: ' + err.message;
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // ===== CAMBIAR ESTADO A LISTO =====
-        async function marcarOrdenLista(ordenId, nuevoEstado) {
-            if (!confirm(`¿Desea cambiar el estado de la orden #${ordenId} a "${nuevoEstado}"?`)) return;
-
-            try {
-                const res = await fetch(`/api/ordenes/${ordenId}/estado`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ estado: nuevoEstado })
-                });
-                if (res.ok) {
-                    cargarOrdenesMovil();
-                } else {
-                    alert('No se pudo actualizar el estado.');
-                }
-            } catch (e) {
-                alert('Error al actualizar estado: ' + e.message);
-            }
-        }
-
-        function cerrarModal(id) {
-            document.getElementById(id).classList.remove('open');
-        }
-
-        // ===== SINCRONIZACIÓN EN TIEMPO REAL (SSE) =====
-        function iniciarSSE() {
-            try {
-                const es = new EventSource('/api/sync-events');
-                es.addEventListener('sync', (e) => {
-                    const p = JSON.parse(e.data);
-                    if (p.tipo === 'orden_actualizada') {
-                        cargarOrdenesMovil();
-                    } else if (p.tipo === 'alerta_stock') {
-                        cargarInventarioMovil();
-                    }
-                });
-                es.onopen = () => {
-                    const pill = document.getElementById('connStatus');
-                    if (pill) {
-                        pill.innerHTML = '<span class="pulse-dot"></span> Conectado';
-                        pill.style.color = '#4ade80';
-                    }
-                };
-                es.onerror = () => {
-                    const pill = document.getElementById('connStatus');
-                    if (pill) {
-                        pill.innerHTML = '<span class="pulse-dot" style="background:#f59e0b; box-shadow:0 0 8px #f59e0b;"></span> Reconectando...';
-                        pill.style.color = '#fbbf24';
-                    }
-                };
-            } catch (e) {
-                console.warn('[SSE] No soportado:', e);
-            }
-        }
-    </script>
+    </main>
+    <dialog id="stockAlert" aria-labelledby="stockTitle">
+        <h2 id="stockTitle">Stock insuficiente</h2>
+        <p id="alarmaStockDetalle"></p>
+        <form method="dialog"><button class="secondary">Entendido</button></form>
+    </dialog>
 </body>
 </html>

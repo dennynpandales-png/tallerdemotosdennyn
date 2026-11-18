@@ -1,0 +1,30 @@
+{
+  "npmRebuild": false,
+  "appId": "com.hidepsoft.taller",
+  "productName": "HIDEP-SOFT-SG",
+  "directories": {
+    "output": "dist"
+  },
+  "win": {
+    "icon": "public/icon.ico",
+    "target": [
+      {
+        "target": "dir",
+        "arch": [
+          "x64"
+        ]
+      }
+    ]
+  },
+  "asar": true,
+  "asarUnpack": [
+    "**/*.node"
+  ],
+  "files": [
+    "main.js",
+    "marca.js",
+    "server.js",
+    "public/**/*",
+    "!public/uploads/**/*"
+  ]
+}

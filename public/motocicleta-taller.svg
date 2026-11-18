@@ -1,0 +1,34 @@
+<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="motoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#d97706"/>
+        </linearGradient>
+        <linearGradient id="wheelGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#64748b"/>
+            <stop offset="100%" stop-color="#1e293b"/>
+        </linearGradient>
+    </defs>
+    <!-- Rueda Delantera -->
+    <circle cx="128" cy="62" r="21" fill="none" stroke="url(#wheelGrad1)" stroke-width="6"/>
+    <circle cx="128" cy="62" r="15" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/>
+    <circle cx="128" cy="62" r="5" fill="#f59e0b"/>
+    <!-- Rueda Trasera -->
+    <circle cx="32" cy="62" r="21" fill="none" stroke="url(#wheelGrad1)" stroke-width="6"/>
+    <circle cx="32" cy="62" r="15" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/>
+    <circle cx="32" cy="62" r="5" fill="#f59e0b"/>
+    <!-- Chasis y Suspensión -->
+    <path d="M 32 62 L 60 48 L 86 56 L 102 46 L 128 62" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 60 48 L 74 65 L 94 65 L 86 56" fill="none" stroke="#f59e0b" stroke-width="3"/>
+    <!-- Tanque y Carenaje Deportivo -->
+    <path d="M 52 46 C 58 35, 78 32, 92 38 C 104 42, 112 40, 118 46 L 108 50 C 96 46, 80 44, 68 50 Z" fill="url(#motoGrad1)"/>
+    <!-- Asiento -->
+    <path d="M 50 45 C 55 42, 65 42, 72 45 C 65 48, 55 48, 50 45 Z" fill="#0f172a"/>
+    <!-- Horquilla delantera y Manillar -->
+    <path d="M 128 62 L 108 26 L 98 24 M 106 28 L 116 28" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+    <!-- Visor / Faro ámbar -->
+    <path d="M 112 28 L 122 34 L 115 38 Z" fill="#fbbf24"/>
+    <!-- Escape / Muffler -->
+    <path d="M 72 65 C 85 65, 100 68, 126 56" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+    <line x1="110" y1="58" x2="132" y2="52" stroke="#f59e0b" stroke-width="2"/>
+</svg>

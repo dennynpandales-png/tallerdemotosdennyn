@@ -3,26 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sesión - Taller de Motos</title>
+    <meta name="theme-color" content="#080b11">
+    <title>Iniciar sesión | HIDEP-SOFT-SG - Taller de Motos</title>
     <link rel="icon" type="image/x-icon" href="icon.ico">
+    <link rel="stylesheet" href="tema-taller.css">
+    <script src="identidad.js" defer></script>
     <style>
-        :root {
-            color-scheme: dark;
-            --bg-main: #080b11;
-            --bg-panel: linear-gradient(145deg, #18202c 0%, #0d121b 100%);
-            --bg-input: #070a0f;
-            --text-color: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent: #f59e0b;
-            --accent-hover: #d97706;
-            --border-color: #64748b;
-        }
         * {
             box-sizing: border-box;
         }
         html,
         body {
-            min-width: 320px;
+            min-width: 0;
             min-height: 100%;
             margin: 0;
         }
@@ -32,13 +24,6 @@
             display: flex;
             flex-direction: column;
             overflow-x: hidden;
-            background-color: var(--bg-main);
-            background-image: linear-gradient(rgba(8, 11, 17, 0.88), rgba(8, 11, 17, 0.93)), url('fondo_moto.jpg');
-            background-position: center;
-            background-size: cover;
-            background-attachment: fixed;
-            color: var(--text-color);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .login-brand {
             padding: clamp(48px, 13vh, 118px) 20px 24px;
@@ -46,17 +31,11 @@
         }
         .login-brand h1 {
             margin: 0;
-            color: var(--text-color);
-            font-size: clamp(24px, 3vw, 32px);
+            color: var(--sg-text);
+            font-size: clamp(1.25rem, 3vw, 2rem);
             font-weight: 900;
-            letter-spacing: 3px;
+            letter-spacing: .035em;
             line-height: 1.15;
-        }
-        .login-brand p {
-            margin: 10px 0 0;
-            color: var(--text-muted);
-            font-size: 10px;
-            letter-spacing: 0.5px;
         }
         .login-main {
             width: 100%;
@@ -69,15 +48,12 @@
         .login-card {
             position: relative;
             display: flex;
-            min-height: 420px;
+            min-height: 380px;
             flex-direction: column;
             width: 100%;
             max-width: 380px;
             padding: 24px;
-            border: 1px solid var(--border-color);
             border-radius: 7px;
-            background: var(--bg-panel);
-            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.65), inset 0 1px 3px rgba(255, 255, 255, 0.12);
         }
         .login-card::before,
         .login-card::after {
@@ -101,16 +77,12 @@
             align-items: center;
             gap: 8px;
             margin: 0;
-            color: var(--accent);
+            color: var(--sg-accent);
             font-size: 21px;
             font-weight: 800;
         }
-        .login-description {
-            margin: 7px 0 20px;
-            color: var(--text-muted);
-            font-size: 11px;
-        }
         #formLogin {
+            margin-top: 1.2rem;
             display: flex;
             flex: 1;
             flex-direction: column;
@@ -122,7 +94,7 @@
         }
         .input-group label {
             margin-bottom: 6px;
-            color: var(--text-muted);
+            color: var(--sg-muted);
             font-size: 11px;
         }
         .input-group input {
@@ -132,18 +104,18 @@
             border: 1px solid #475569;
             border-radius: 4px;
             outline: none;
-            background: var(--bg-input);
-            color: var(--text-color);
+            background: var(--sg-input);
+            color: var(--sg-text);
             font: inherit;
             font-size: 12px;
             transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
         .input-group input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 1px var(--accent);
+            border-color: var(--sg-accent);
+            box-shadow: 0 0 0 1px var(--sg-accent);
         }
         .input-group input::placeholder {
-            color: #64748b;
+            color: var(--sg-muted);
         }
         .btn-action {
             display: flex;
@@ -156,7 +128,7 @@
             padding: 10px 12px;
             border: 0;
             border-radius: 4px;
-            background: var(--accent);
+            background: var(--sg-accent);
             box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
             color: #111827;
             cursor: pointer;
@@ -166,8 +138,9 @@
             transition: background 0.2s ease, transform 0.2s ease;
         }
         .btn-action:hover {
-            background: var(--accent-hover);
+            background: var(--sg-accent-hover);
         }
+        .btn-action:disabled { opacity: .7; cursor: wait; }
         .btn-action:active {
             transform: translateY(1px);
         }
@@ -206,52 +179,41 @@
             padding: 16px 0 0;
             border: 0;
             background: transparent;
-            color: var(--text-muted);
+            color: var(--sg-muted);
             cursor: pointer;
             font: inherit;
             font-size: 10px;
         }
         .link-recuperar:hover {
-            color: var(--accent);
+            color: var(--sg-accent);
             text-decoration: underline;
         }
         .login-security {
             margin: 0 20px clamp(70px, 11vh, 100px);
-            color: var(--text-muted);
+            color: var(--sg-muted);
             font-size: 10px;
             text-align: center;
         }
-        .login-footer {
-            display: flex;
-            justify-content: space-between;
-            gap: 16px;
-            padding: 12px 20px;
-            border-top: 1px solid #263140;
-            color: #64748b;
-            font-size: 9px;
-        }
-        .login-footer p {
-            margin: 0;
-        }
         @media (max-width: 520px) {
             .login-brand {
-                padding-top: 52px;
+                padding-top: max(1.5rem, env(safe-area-inset-top));
             }
             .login-card {
+                min-height: 0;
                 padding: 22px 18px;
             }
-            .login-footer {
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
+            .input-group input { font-size: 1rem; min-height: 46px; }
+            .btn-action, .link-recuperar { min-height: 44px; }
+            .link-recuperar { font-size: .8rem; }
+            .msg-status:empty { display: none; }
+            .login-security { margin-bottom: 1.5rem; }
         }
     </style>
 </head>
-<body>
+<body class="fondo-taller">
     <header class="login-brand">
         <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px;">
-            <img src="icon.png" alt="Logo HIDEP-SOFT" style="width: 72px; height: 72px; object-fit: contain; border-radius: 12px; border: 2px solid rgba(245, 158, 11, 0.65); box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);">
+            <img src="icon.png" alt="" class="logo-taller" width="64" height="64">
             <svg viewBox="0 0 160 90" style="width: 130px; height: 75px; filter: drop-shadow(0 2px 10px rgba(245, 158, 11, 0.45));" aria-hidden="true">
                 <defs>
                     <linearGradient id="motoGradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -279,18 +241,16 @@
                 <line x1="110" y1="58" x2="132" y2="52" stroke="#f59e0b" stroke-width="2"/>
             </svg>
         </div>
-        <h1>HIDEP-SOFT</h1>
-        <p>SG-TALLER DE MOTOS / GESTIÓN &amp; POS</p>
+        <h1>HIDEP-SOFT-SG - Taller de Motos</h1>
     </header>
 
     <main class="login-main">
-        <section class="login-card" aria-labelledby="loginTitle">
-            <h2 id="loginTitle"><span aria-hidden="true">🛠️</span> Taller de Motos</h2>
-            <p class="login-description">Ingresa para comenzar tu jornada de trabajo.</p>
+        <section class="login-card panel-taller" aria-labelledby="loginTitle">
+            <h2 id="loginTitle"><span aria-hidden="true">🛠️</span> Iniciar sesión</h2>
             <form id="formLogin">
                 <div class="input-group">
                     <label for="loginUser">Usuario</label>
-                    <input type="text" id="loginUser" placeholder="Ingrese su usuario..." required autofocus autocomplete="username">
+                    <input type="text" id="loginUser" placeholder="Ingrese su usuario..." required autocomplete="username">
                 </div>
                 <div class="input-group">
                     <label for="loginPassword">Contraseña</label>
@@ -316,10 +276,6 @@
         </svg>
         Acceso seguro · Datos almacenados localmente
     </p>
-    <footer class="login-footer">
-        <p>SOFTWARE PARA TALLERES QUE NO SE DETIENEN.</p>
-        <p>Versión 2.4.0 · Licencia profesional</p>
-    </footer>
 
     <script>
         document.getElementById('formLogin').addEventListener('submit', async (e) => {
@@ -327,11 +283,13 @@
             const msg = document.getElementById('msgLogin');
             const username = document.getElementById('loginUser').value.trim();
             const password = document.getElementById('loginPassword').value;
+            const submit = e.currentTarget.querySelector('button[type="submit"]');
+            if (submit.disabled) return;
+            submit.disabled = true;
             msg.textContent = '';
 
             try {
-                const apiBase = window.location.protocol.startsWith('http') ? '' : 'http://localhost:3000';
-                const res = await fetch(`${apiBase}/api/login`, {
+                const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -342,11 +300,9 @@
                     msg.dataset.state = 'success';
                     msg.style.color = '#10b981';
                     msg.textContent = 'Acceso concedido...';
-                    localStorage.setItem('taller_nombre', data.nombre);
-                    localStorage.setItem('taller_usuario', username);
-                    localStorage.setItem('taller_rol', data.rol);
-                    localStorage.setItem('taller_permisos', JSON.stringify(data.permisos || {}));
-                    setTimeout(() => { window.location.href = 'dashboard.html'; }, 400);
+                    const destino = data.rol === 'Mecanico' ? '/mobile.html' : '/dashboard.html';
+                    window.location.replace(destino);
+                    return;
                 } else {
                     msg.dataset.state = 'error';
                     msg.style.color = '#ef4444';
@@ -358,6 +314,7 @@
                 msg.style.color = '#ef4444';
                 msg.textContent = 'Error de conexión con el servidor.';
             }
+            submit.disabled = false;
         });
 
         async function recuperarPasswordPrompt() {
@@ -366,8 +323,7 @@
             const cedula = prompt('Cédula registrada:');
             if (!username || !nombre || !cedula) return;
             try {
-                const apiBase = window.location.protocol.startsWith('http') ? '' : 'http://localhost:3000';
-                const questionResponse = await fetch(`${apiBase}/api/recuperacion-pregunta`, {
+                const questionResponse = await fetch('/api/recuperacion-pregunta', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, nombre, cedula })
                 });
@@ -376,13 +332,13 @@
                 const respuesta_seguridad = prompt(question.pregunta_seguridad);
                 const nuevaPassword = prompt('Nueva contraseña (mínimo 10 caracteres):');
                 if (!respuesta_seguridad || !nuevaPassword) return;
-                const res = await fetch(`${apiBase}/api/recuperar-password`, {
+                const res = await fetch('/api/recuperar-password', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, nombre, cedula, respuesta_seguridad, nuevaPassword })
                 });
                 const data = await res.json();
                 alert(data.mensaje || 'No se pudo procesar la solicitud.');
-            } catch (error) {
+            } catch {
                 alert('Error al procesar la solicitud.');
             }
         }

@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HIDEP-SOFT - Sistema de Gestión de Taller de Motos</title>
+    <title>HIDEP-SOFT-SG - Taller de Motos</title>
+    <link rel="stylesheet" href="tema-taller.css">
+    <script src="identidad.js" defer></script>
     <style>
         :root {
             --bg-main: #0a0e14;
@@ -332,8 +334,6 @@
             border-top: 4px solid var(--accent); max-height: 85vh; overflow-y: auto; border: 2px solid var(--metal-border);
             box-shadow: 0 25px 70px rgba(0,0,0,0.99), inset 0 1px 3px rgba(255,255,255,0.2);
         }
-        .permisos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; background: var(--bg-input); padding: 8px; border-radius: 5px; border: 1px solid var(--border-color); margin-top: 4px; }
-        .permiso-item { display: flex; align-items: center; gap: 5px; font-size: 10px; cursor: pointer; color: var(--text-color); font-weight: 700; }
         .input-label { display: block; margin-bottom: 4px; color: var(--text-muted); font-weight: 700; }
         .history-order-card {
             margin-bottom: 6px;
@@ -716,7 +716,7 @@
             display: none;
         }
 
-        .metric-box, .card-stats, .agenda-item-box, .permisos-grid {
+        .metric-box, .card-stats, .agenda-item-box {
             border-color: var(--border-color);
             border-radius: 10px;
             box-shadow: none;
@@ -819,19 +819,19 @@
     </style>
     <style>
         :root {
-            --bg-main: #080b11;
+            --bg-main: var(--sg-base);
             --bg-header: rgba(8, 12, 19, 0.92);
             --bg-nav: #0e141e;
-            --bg-card: linear-gradient(155deg, rgba(24, 31, 43, 0.96), rgba(12, 17, 25, 0.96));
-            --bg-input: rgba(5, 9, 15, 0.9);
-            --text-color: #f1f5f9;
-            --text-muted: #929baa;
-            --accent: #f5a20b;
-            --accent-hover: #d98700;
-            --border-color: #303a49;
+            --bg-card: var(--sg-panel);
+            --bg-input: var(--sg-input);
+            --text-color: var(--sg-text);
+            --text-muted: var(--sg-muted);
+            --accent: var(--sg-accent);
+            --accent-hover: var(--sg-accent-hover);
+            --border-color: var(--sg-border-subtle);
             --metal-border: #394452;
             --table-bg: rgba(11, 17, 25, 0.94);
-            --workspace-backdrop: linear-gradient(rgba(8, 11, 17, 0.88), rgba(8, 11, 17, 0.92));
+            --workspace-backdrop: var(--sg-workshop-shade);
         }
 
         .light-theme {
@@ -861,7 +861,7 @@
 
         body {
             isolation: isolate;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            font-family: var(--sg-workshop-font);
         }
 
         .app-container {
@@ -869,11 +869,11 @@
             width: 100%;
             height: 100vh;
             height: 100dvh;
-            grid-template-columns: 240px minmax(0, 1fr);
+            grid-template-columns: clamp(12rem, 19vw, 15rem) minmax(0, 1fr);
             grid-template-rows: 64px minmax(0, 1fr);
             overflow: hidden;
             background-color: var(--bg-main);
-            background-image: var(--workspace-backdrop), url("workshop-background.jpg");
+            background-image: var(--workspace-backdrop), var(--sg-workshop-image);
             background-position: center;
             background-size: cover;
             background-attachment: fixed;
@@ -891,7 +891,7 @@
             box-shadow: none;
         }
 
-        .app-container > header > div:first-child {
+        .app-container > header > div:first-of-type {
             display: flex;
             min-width: 0;
             align-items: center;
@@ -955,7 +955,7 @@
             grid-column: 1;
             grid-row: 1 / 3;
             display: flex;
-            width: 240px;
+            width: 100%;
             min-height: 0;
             flex-direction: column;
             align-items: stretch;
@@ -1096,7 +1096,7 @@
         .tab-content,
         .tab-content.active {
             width: 100%;
-            max-width: 1500px;
+            max-width: 100%;
             margin: 0 auto;
             padding: 0;
             border: 0;
@@ -1290,8 +1290,8 @@
         }
 
         #ordenes .orders-search-toolbar .toolbar-search-field {
-            flex: 1 1 320px;
-            max-width: 520px;
+            flex: 1 1 20rem;
+            max-width: 32.5rem;
         }
 
         #ordenes #ordenesAbiertasSection[hidden] {
@@ -1451,17 +1451,12 @@
             grid-template-columns: minmax(0, 1fr) auto auto;
         }
 
-        #configuracion #formCrearUsuario .permisos-grid {
-            grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
-        }
-
         #configuracion .msg-status {
             min-height: 0;
             margin-top: 10px;
         }
 
         .tab-content table {
-            min-width: 640px;
             margin-top: 8px;
             border: 0;
             border-radius: 4px;
@@ -1549,11 +1544,10 @@
 
         @media (max-width: 1000px) {
             .app-container {
-                grid-template-columns: 190px minmax(0, 1fr);
+                grid-template-columns: minmax(11rem, 22%) minmax(0, 1fr);
             }
 
             .app-container > nav {
-                width: 190px;
                 padding-right: 12px;
                 padding-left: 12px;
             }
@@ -1580,122 +1574,6 @@
             }
         }
 
-        @media (max-width: 760px) {
-            .app-container {
-                grid-template-columns: minmax(0, 1fr);
-                grid-template-rows: auto auto minmax(0, 1fr);
-            }
-
-            .app-container > header {
-                grid-column: 1;
-                grid-row: 1;
-                min-height: 60px;
-                gap: 8px;
-                padding: 8px 14px;
-            }
-
-            .workspace-breadcrumb {
-                gap: 6px;
-                font-size: 10px;
-            }
-
-            .user-info {
-                gap: 5px;
-                font-size: 10px;
-            }
-
-            .app-container > nav {
-                grid-column: 1;
-                grid-row: 2;
-                display: flex;
-                width: 100%;
-                min-height: 56px;
-                flex-direction: row;
-                align-items: center;
-                flex-wrap: nowrap;
-                gap: 6px;
-                overflow-x: auto;
-                overflow-y: hidden;
-                padding: 7px 10px;
-                border-right: 0;
-                border-bottom: 1px solid var(--border-color);
-            }
-
-            .sidebar-brand,
-            .sidebar-label,
-            .sidebar-status {
-                display: none;
-            }
-
-            .tab-btn {
-                width: auto;
-                min-height: 38px;
-                flex: 0 0 auto;
-                gap: 7px;
-                padding: 8px 10px;
-                font-size: 11px;
-            }
-
-            .app-container > .container {
-                grid-column: 1;
-                grid-row: 3;
-                padding: 18px 14px 28px;
-            }
-
-            #inicio.tab-content.active {
-                grid-template-columns: minmax(0, 1fr);
-            }
-
-            #inicio .industrial-panel:first-child,
-            #inicio .industrial-panel:nth-child(3),
-            #inicio .agenda-sidebar,
-            #inicio .industrial-panel:nth-child(4) {
-                grid-column: 1;
-                grid-row: auto;
-            }
-
-            #inicio .quick-actions-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            #clientes > div:nth-of-type(3) {
-                flex-direction: column;
-            }
-
-            #configuracion #formBackup .backup-path-grid {
-                grid-template-columns: minmax(0, 1fr);
-            }
-        }
-
-        @media (max-width: 480px) {
-            .app-container > header {
-                align-items: center;
-                padding: 7px 10px;
-            }
-
-            .workspace-breadcrumb > span:first-child,
-            .user-info > span:not(.user-value) {
-                display: none;
-            }
-
-            .btn-logout {
-                padding: 7px 9px;
-            }
-
-            .app-container > .container {
-                padding-right: 10px;
-                padding-left: 10px;
-            }
-
-            #inicio .metrics-container,
-            #clientes > div:nth-of-type(3) > div .form-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
-            #inventario > div:first-of-type {
-                flex-direction: column;
-            }
-        }
             /* Correcciones de contraste y adaptación de la identidad del usuario. */
         .sidebar-user-details { flex-direction: column; align-items: flex-start; }
         .sidebar-user-name { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.4; }
@@ -1713,13 +1591,20 @@
  .light-theme .clock-digital-date { color: #334155; }
 </style>
     <link rel="stylesheet" href="dashboard-refinements.css">
+    <script src="/dispositivo.js"></script>
 </head>
 <body id="bodyDashboard">
-    <div class="app-container">
+    <main class="desktop-required" id="avisoEscritorio" hidden>
+        <h1>Abre HIDEP-SOFT-SG desde un PC</h1>
+        <p>Los paneles de Administración y Recepción se usan desde una computadora.</p>
+        <button type="button" class="btn-action" id="salirAvisoEscritorio">Cerrar sesión</button>
+    </main>
+    <div class="app-container" id="workspaceDashboard" hidden>
         <div id="globalStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
         <header>
+            <button type="button" id="dashboardMenu" aria-expanded="false" aria-controls="dashboardNav">Menú</button>
             <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-                <h1 id="headerTitulo">🏍️ Sistema de Gestión - Taller de Motos</h1>
+                <h1 id="headerTitulo">HIDEP-SOFT-SG - Taller de Motos</h1>
                 <div class="workspace-breadcrumb"><span>Espacio de trabajo</span><span>/</span><strong id="breadcrumbCurrent">Inicio</strong></div>
             </div>
 
@@ -1736,56 +1621,13 @@
             </div>
         </header>
 
-        <!-- Banner de Alarma de Stock Insuficiente en Tiempo Real -->
-        <div id="bannerAlertaStock" class="stock-alarm-banner" style="display: none;">
-            <div class="alarm-icon animate-pulse">⚠️</div>
-            <div class="alarm-text" id="lblAlertaStockTexto">¡Alerta de inventario insuficiente!</div>
-            <div class="alarm-actions">
-                <button class="btn-alarm-action" onclick="irAInventario()">Ver Inventario</button>
-                <button class="btn-alarm-close" onclick="descartarAlertaStock()">✕</button>
-            </div>
-        </div>
-
-        <nav aria-label="Gestión del taller">
-            <!-- Logotipo Superior con Silueta de Motocicleta y Marca HIDEP-SOFT en Naranja -->
+        <nav id="dashboardNav" aria-label="Gestión del taller">
+            <!-- Logotipo Superior con Silueta de Motocicleta y Marca HIDEP-SOFT-SG en Naranja -->
             <div class="sidebar-brand-hero">
                 <div class="brand-motorcycle-badge">
-                    <svg viewBox="0 0 160 90" class="motorcycle-svg" aria-hidden="true">
-                        <defs>
-                            <linearGradient id="motoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#f59e0b"/>
-                                <stop offset="100%" stop-color="#d97706"/>
-                            </linearGradient>
-                            <linearGradient id="wheelGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#64748b"/>
-                                <stop offset="100%" stop-color="#1e293b"/>
-                            </linearGradient>
-                        </defs>
-                        <!-- Rueda Delantera -->
-                        <circle cx="128" cy="62" r="21" fill="none" stroke="url(#wheelGrad1)" stroke-width="6"/>
-                        <circle cx="128" cy="62" r="15" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/>
-                        <circle cx="128" cy="62" r="5" fill="#f59e0b"/>
-                        <!-- Rueda Trasera -->
-                        <circle cx="32" cy="62" r="21" fill="none" stroke="url(#wheelGrad1)" stroke-width="6"/>
-                        <circle cx="32" cy="62" r="15" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/>
-                        <circle cx="32" cy="62" r="5" fill="#f59e0b"/>
-                        <!-- Chasis y Suspensión -->
-                        <path d="M 32 62 L 60 48 L 86 56 L 102 46 L 128 62" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
-                        <path d="M 60 48 L 74 65 L 94 65 L 86 56" fill="none" stroke="#f59e0b" stroke-width="3"/>
-                        <!-- Tanque y Carenaje Deportivo -->
-                        <path d="M 52 46 C 58 35, 78 32, 92 38 C 104 42, 112 40, 118 46 L 108 50 C 96 46, 80 44, 68 50 Z" fill="url(#motoGrad1)"/>
-                        <!-- Asiento -->
-                        <path d="M 50 45 C 55 42, 65 42, 72 45 C 65 48, 55 48, 50 45 Z" fill="#0f172a"/>
-                        <!-- Horquilla delantera y Manillar -->
-                        <path d="M 128 62 L 108 26 L 98 24 M 106 28 L 116 28" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
-                        <!-- Visor / Faro ámbar -->
-                        <path d="M 112 28 L 122 34 L 115 38 Z" fill="#fbbf24"/>
-                        <!-- Escape / Muffler -->
-                        <path d="M 72 65 C 85 65, 100 68, 126 56" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
-                        <line x1="110" y1="58" x2="132" y2="52" stroke="#f59e0b" stroke-width="2"/>
-                    </svg>
+                    <img src="motocicleta-taller.svg" class="motorcycle-svg" alt="">
                 </div>
-                <div class="brand-hero-title">HIDEP-SOFT</div>
+                <div class="brand-hero-title">HIDEP-SOFT-SG</div>
                 <div class="brand-hero-subtitle">SISTEMA DE GESTIÓN</div>
                 <div class="brand-hero-tag">🏍️ TALLER DE MOTOS</div>
             </div>
@@ -1794,11 +1636,11 @@
             <button class="tab-btn active" id="navInicio" onclick="cambiarPestana(event, 'inicio')"><span class="nav-icon" aria-hidden="true">▦</span>Inicio</button>
             <button class="tab-btn" id="navClientes" onclick="cambiarPestana(event, 'clientes')"><span class="nav-icon" aria-hidden="true">♙</span>Clientes</button>
             <button class="tab-btn" id="navOrdenes" onclick="cambiarPestana(event, 'ordenes')"><span class="nav-icon" aria-hidden="true">▤</span>Órdenes</button>
-            <button class="tab-btn" id="navInventario" onclick="cambiarPestana(event, 'inventario')"><span class="nav-icon" aria-hidden="true">⬡</span>Inventario</button>
+            <button class="tab-btn" id="navInventario" data-admin-only onclick="cambiarPestana(event, 'inventario')"><span class="nav-icon" aria-hidden="true">⬡</span>Inventario</button>
             <button class="tab-btn" id="navCitas" onclick="cambiarPestana(event, 'citas')"><span class="nav-icon" aria-hidden="true">▦</span>Citas</button>
-            <button class="tab-btn" id="navFacturacion" onclick="cambiarPestana(event, 'facturacion')"><span class="nav-icon" aria-hidden="true">▣</span>Facturación</button>
-            <button class="tab-btn" id="navReportes" onclick="cambiarPestana(event, 'reportes')"><span class="nav-icon" aria-hidden="true">📈</span>Reportes</button>
-            <button class="tab-btn" id="navConfig" onclick="cambiarPestana(event, 'configuracion')"><span class="nav-icon" aria-hidden="true">☷</span>Configuración</button>
+            <button class="tab-btn" id="navFacturacion" data-admin-only onclick="cambiarPestana(event, 'facturacion')"><span class="nav-icon" aria-hidden="true">▣</span>Facturación</button>
+            <button class="tab-btn" id="navReportes" data-admin-only onclick="cambiarPestana(event, 'reportes')"><span class="nav-icon" aria-hidden="true">📈</span>Reportes</button>
+            <button class="tab-btn" id="navConfig" data-admin-only onclick="cambiarPestana(event, 'configuracion')"><span class="nav-icon" aria-hidden="true">☷</span>Configuración</button>
 
             <!-- Bloque Inferior: Saludo Dinámico, Usuario Conectado, Rol, Eslogan y Cierre Seguro -->
             <div class="sidebar-user-block">
@@ -1808,22 +1650,38 @@
                     <div class="sidebar-user-role-pill" id="lblSidebarRol">Admin</div>
                 </div>
                 <div class="sidebar-slogan" id="lblSidebarSlogan">"Pasión y Precisión en Cada Kilómetro"</div>
-                <button type="button" class="btn-sidebar-backup-exit" onclick="cerrarConCopiaSeguridad()" title="Cerrar la aplicación creando un respaldo seguro de la base de datos">
+                <button type="button" class="btn-sidebar-backup-exit" data-admin-only onclick="cerrarConCopiaSeguridad()" title="Cerrar la aplicación creando un respaldo seguro de la base de datos">
                     🛡️ Cerrar y hacer copia de seguridad
                 </button>
             </div>
         </nav>
 
         <div class="container">
+        <!-- Banner de Alarma de Stock Insuficiente en Tiempo Real -->
+        <div id="bannerAlertaStock" class="stock-alarm-banner" style="display: none;">
+            <div class="alarm-icon animate-pulse">⚠️</div>
+            <div class="alarm-text" id="lblAlertaStockTexto">¡Alerta de inventario insuficiente!</div>
+            <div class="alarm-actions">
+                <button class="btn-alarm-action" data-admin-only onclick="irAInventario()">Ver Inventario</button>
+                <button class="btn-alarm-close" onclick="descartarAlertaStock()">✕</button>
+            </div>
+        </div>
+
+        <section id="avisosOrdenTerminada" role="status" aria-live="polite" hidden
+            style="padding: 12px; border: 1px solid var(--accent); background: var(--bg-card);">
+            <strong>Órdenes terminadas</strong>
+            <ul id="listaOrdenesTerminadas"></ul>
+        </section>
             <!-- VISTA 0: TABLERO PRINCIPAL -->
             <div id="inicio" class="tab-content active">
                 <div class="industrial-panel">
                     <div class="dashboard-panel-title">📊 Métricas Rápidas</div>
                     <div class="metrics-container">
+                        <div class="metric-box"><label class="metric-label" for="statOrdenesTotal">Total de órdenes</label><output class="metric-value" id="statOrdenesTotal">0</output></div>
                         <div class="metric-box"><label class="metric-label" for="statOrdenesActivas">Órdenes Activas</label><output class="metric-value" id="statOrdenesActivas" aria-live="polite">0</output></div>
                         <div class="metric-box"><label class="metric-label" for="statCitasHoy">Citas Hoy</label><output class="metric-value" id="statCitasHoy" aria-live="polite">0</output></div>
                         <div class="metric-box"><label class="metric-label" for="statMecanicos">Mecánicos</label><output class="metric-value" id="statMecanicos" aria-live="polite">0</output></div>
-                        <div class="metric-box"><label class="metric-label" for="statIngresosMes">Ingresos Mes</label><output class="metric-value text-success" id="statIngresosMes" aria-live="polite">$ 0</output></div>
+                        <div class="metric-box" data-admin-only><label class="metric-label" for="statIngresosMes">Ingresos Mes</label><output class="metric-value text-success" id="statIngresosMes" aria-live="polite">$ 0</output></div>
                     </div>
                 </div>
 
@@ -1835,10 +1693,10 @@
                 </div>
 
                 <div id="homeOrdersPanel" class="industrial-panel home-orders-panel" hidden>
-                    <div class="dashboard-panel-title">⚙️ Órdenes en Proceso</div>
+                    <div class="dashboard-panel-title">Placas del día</div>
                     <div class="home-orders-scroll">
                         <table>
-                            <thead><tr><th>Motocicleta</th><th>Tipo</th><th>Status</th></tr></thead>
+                            <thead><tr><th>Placa</th><th>Mecánico</th><th>Estado</th><th>Asignación</th></tr></thead>
                             <tbody id="tablaLateralOrdenes"></tbody>
                         </table>
                     </div>
@@ -1849,8 +1707,8 @@
                     <div class="quick-actions-grid">
                         <button class="btn-action-industrial" onclick="document.getElementById('navOrdenes').click()"><span style="font-size: 16px;">➕</span> Nueva Orden</button>
                         <button class="btn-action-industrial" onclick="document.getElementById('navClientes').click()"><span style="font-size: 16px;">👥</span> Registrar Cliente</button>
-                        <button class="btn-action-industrial" onclick="document.getElementById('navInventario').click()"><span style="font-size: 16px;">📦</span> Consultar Inventario</button>
-                        <button class="btn-action-industrial" onclick="document.getElementById('navFacturacion').click()"><span style="font-size: 16px;">💵</span> Generar Factura</button>
+                        <button class="btn-action-industrial" data-admin-only onclick="document.getElementById('navInventario').click()"><span style="font-size: 16px;">📦</span> Consultar Inventario</button>
+                        <button class="btn-action-industrial" data-admin-only onclick="document.getElementById('navFacturacion').click()"><span style="font-size: 16px;">💵</span> Generar Factura</button>
                     </div>
                 </div>
             </div>
@@ -1923,16 +1781,16 @@
             <!-- PESTAÑA 2: ÓRDENES DE SERVICIO -->
             <div id="ordenes" class="tab-content">
                 <div class="orders-search-toolbar">
-                    <div class="toolbar-search-field"><label for="buscarOrdenInput">Buscar orden abierta por número, placa o cliente</label>
+                    <div class="toolbar-search-field"><label for="buscarOrdenInput">Buscar orden por número, placa o cliente</label>
                     <input type="search" id="buscarOrdenInput" placeholder="Ej. 125, ABC123 o nombre del cliente" aria-controls="tablaOrdenesBody" oninput="cargarOrdenesTabla()"></div>
                     <button type="button" class="btn-action" style="margin-top:0;" onclick="cargarOrdenesTabla()">Buscar</button>
                 </div>
 
                 <div id="ordenesAbiertasSection" hidden>
-                    <h3>Órdenes abiertas</h3>
+                    <h3>Órdenes del taller</h3>
                     <div class="orders-list-scroll">
                         <table>
-                            <thead><tr><th>ID</th><th>Moto</th><th>Cliente</th><th>Tipo</th><th>Mecánico</th><th>Estado</th><th>Mano de obra</th><th>Historial de Trabajos</th><th>Acciones</th></tr></thead>
+                            <thead><tr><th>ID</th><th>Moto</th><th>Cliente</th><th>Tipo</th><th>Mecánico</th><th>Estado</th><th data-admin-only>Mano de obra</th><th>Historial de Trabajos</th><th>Acciones</th></tr></thead>
                             <tbody id="tablaOrdenesBody"></tbody>
                         </table>
                     </div>
@@ -1944,7 +1802,7 @@
                         <div class="input-group"><label for="ordenMotoId">Moto</label><select id="ordenMotoId" required onchange="sugerirManoDeObra()"><option value="">Seleccione moto...</option></select></div>
                         <div class="input-group"><label for="ordenMecanicoId">Mecánico Asignado</label><select id="ordenMecanicoId" required><option value="">Seleccione mecánico...</option></select></div>
                         <div class="input-group"><label for="ordenTipo">Tipo</label><select id="ordenTipo" required><option value="Preventivo">Preventivo</option><option value="Correctivo">Correctivo</option><option value="Predictivo">Predictivo</option></select></div>
-                        <div class="input-group"><label for="ordenManoObra">Mano de Obra ($)</label><input type="number" id="ordenManoObra" value="0" required></div>
+                        <div class="input-group" data-admin-only><label for="ordenManoObra">Mano de Obra ($)</label><input type="number" id="ordenManoObra" value="0" required></div>
                     </div>
                     <div class="input-group" style="margin-bottom: 8px;"><label for="ordenMotivo">Motivo del Ingreso / Diagnóstico</label><textarea id="ordenMotivo" rows="2" required></textarea></div>
                     <button type="submit" class="btn-action">Crear Orden</button>
@@ -1953,7 +1811,7 @@
 
                 <div id="ordenGestionSeleccionada" class="order-selection-summary" role="status" aria-live="polite" aria-atomic="true" hidden></div>
                 <datalist id="ordenesAbiertasDatalist"></datalist>
-                <div id="orderActionsLayout" class="order-actions-layout">
+                <div id="orderActionsLayout" class="order-actions-layout" data-admin-only>
                     <div class="client-data-column" style="flex: 1;">
                         <h3>Consumo de Repuestos</h3>
                         <form id="formUsoRepuesto" class="form-grid" style="align-items: flex-end;">
@@ -1984,24 +1842,11 @@
                                 <input type="search" id="repOrdenSearch" list="ordenesAbiertasDatalist" placeholder="Escribe para buscar órdenes..." autocomplete="off" required oninput="sincronizarOrdenAbierta(this, 'repOrdenId')">
                                 <select id="repOrdenId" class="visually-hidden" aria-hidden="true" tabindex="-1"><option value="" data-costo="0"></option></select>
                             </div>
-                            <div class="input-group" style="flex: 2;"><label for="repTrabajo">Reportar avance o mano de obra realizada</label><input type="text" id="repTrabajo" placeholder="Ej. Desmonte de culata..." required></div>
+                            <div class="input-group" style="flex: 2;"><label for="repTrabajo">Reportar avance visible en el seguimiento del cliente</label><input type="text" id="repTrabajo" maxlength="4000" placeholder="Ej. Desmonte de culata..." required></div>
                             <div class="input-group admin-pricing-control"><label for="repCostoManoObra">Valor de mano de obra ($)</label><input type="number" id="repCostoManoObra" min="0" step="0.01" value="0" required></div>
                             <div><button type="submit" class="btn-action btn-action-info">➕ Registrar</button></div>
                             <div class="admin-pricing-control"><button type="button" class="btn-action" onclick="actualizarManoDeObra()">Guardar mano de obra</button></div>
                         </form>
-                        <details class="mechanic-parts-request">
-                            <summary>Reportar consumo de repuestos</summary>
-                            <form id="formSolicitarRepuesto" class="form-grid" style="align-items:flex-end; margin-top:10px;">
-                                <div class="input-group">
-                                    <label for="inputBuscadorSolicitud">Repuesto utilizado</label>
-                                    <input type="search" id="inputBuscadorSolicitud" placeholder="Código o nombre..." autocomplete="off" oninput="filtrarRepuestosInput(this.value, 'solicitudRepuestoId', 'sugerenciasSolicitudRepuestos')">
-                                    <input type="hidden" id="solicitudRepuestoId" required>
-                                    <div id="sugerenciasSolicitudRepuestos" class="autocomplete-suggestions"></div>
-                                </div>
-                                <div class="input-group"><label for="solicitudCantidad">Cantidad utilizada</label><input type="number" id="solicitudCantidad" min="1" step="1" value="1" required></div>
-                                <button type="submit" class="btn-action">Registrar consumo</button>
-                            </form>
-                        </details>
                         <div id="msgRep" class="msg-status" role="status" aria-live="polite" aria-atomic="true"></div>
                     </div>
                 </div>
@@ -2009,7 +1854,7 @@
             </div>
 
             <!-- PESTAÑA 3: INVENTARIO -->
-            <div id="inventario" class="tab-content">
+            <div id="inventario" class="tab-content" data-admin-only>
                 <h2>Control de Inventario y Valorización</h2>
                 <div style="display: flex; gap: 12px; margin-bottom: 14px;">
                     <div class="card-stats" style="flex:1;"><h3>Valor Total (Costo)</h3><p id="invValCosto" style="font-weight: 900; color: var(--accent);">$ 0</p></div>
@@ -2071,7 +1916,7 @@
             </div>
 
             <!-- PESTAÑA 5: FACTURACIÓN POS -->
-            <div id="facturacion" class="tab-content">
+            <div id="facturacion" class="tab-content" data-admin-only>
                 <h2>Facturación de Órdenes (Caja y POS)</h2>
                 <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                     <div class="toolbar-search-field"><label for="buscadorFactura">Buscar factura por placa o identificador de orden</label>
@@ -2087,7 +1932,7 @@
             </div>
 
             <!-- PESTAÑA 6: REPORTES Y GANANCIAS -->
-            <div id="reportes" class="tab-content">
+            <div id="reportes" class="tab-content" data-admin-only>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
                     <div>
                         <h2>📈 Reportes, Ganancias y Rentabilidad del Taller</h2>
@@ -2119,6 +1964,7 @@
                             <select id="filtroReporteEstado" onchange="cargarReporteDetallado()">
                                 <option value="">Todos los estados</option>
                                 <option value="Facturada" selected>Facturadas (Cerradas)</option>
+                                <option value="Terminada">Terminadas</option>
                                 <option value="En proceso">En proceso</option>
                             </select>
                         </div>
@@ -2194,11 +2040,11 @@
             </div>
 
             <!-- PESTAÑA 7: CONFIGURACIÓN -->
-            <div id="configuracion" class="tab-content">
+            <div id="configuracion" class="tab-content" data-admin-only>
                 <h2>Configuración General y Seguridad</h2>
                 <form id="formConfig">
                     <div class="form-grid">
-                        <div class="input-group"><label for="confNombre">Nombre del Taller</label><input type="text" id="confNombre" required></div>
+                        <div class="input-group"><label for="confNombre">Nombre del Taller</label><input type="text" id="confNombre" readonly></div>
                         <div class="input-group"><label for="confNit">NIT / Cédula Jurídica</label><input type="text" id="confNit" required></div>
                         <div class="input-group"><label for="confEslogan">Eslogan Oficial del Taller</label><input type="text" id="confEslogan" placeholder="Pasión y Precisión en Cada Kilómetro"></div>
                         <div class="input-group"><label for="confTelefono">Teléfono</label><input type="text" id="confTelefono"></div>
@@ -2282,25 +2128,13 @@
                         <div class="input-group"><label for="nuevoUserRespuesta">Respuesta de seguridad</label><input type="password" id="nuevoUserRespuesta" required autocomplete="off"></div>
                         <div class="input-group"><label for="nuevoUserRol">Rol</label><select id="nuevoUserRol"><option value="Mecanico">Mecánico</option><option value="Recepcionista">Recepcionista</option><option value="Administrador">Administrador</option></select></div>
                     </div>
-                    <div class="input-group" style="margin-top: 6px;">
-                        <span class="input-label">Permisos de Acceso por Módulo:</span>
-                        <div class="permisos-grid">
-                            <label class="permiso-item"><input type="checkbox" id="permClientes" checked> Clientes</label>
-                            <label class="permiso-item"><input type="checkbox" id="permOrdenes" checked> Órdenes</label>
-                            <label class="permiso-item"><input type="checkbox" id="permFacturacion"> Facturación</label>
-                            <label class="permiso-item"><input type="checkbox" id="permInventario"> Inventario</label>
-                            <label class="permiso-item"><input type="checkbox" id="permCitas" checked> Citas</label>
-                            <label class="permiso-item"><input type="checkbox" id="permReportes"> Reportes</label>
-                            <label class="permiso-item"><input type="checkbox" id="permConfig"> Configuración</label>
-                        </div>
-                    </div>
                     <button type="submit" class="btn-action btn-action-info" style="margin-top: 6px;">Crear Usuario</button>
                 </form>
                 <div id="msgUsuario" class="msg-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
                 <div class="users-list-scroll">
                     <table>
-                        <thead><tr><th>ID</th><th>Nombre</th><th>Usuario</th><th>Rol / Permisos</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>ID</th><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Acciones</th></tr></thead>
                         <tbody id="tablaUsuariosBody"></tbody>
                     </table>
                 </div>
@@ -2311,7 +2145,7 @@
             </div>
         </div>
 
-        <div class="corner-brand-badge">HIDEP-SOFT</div>
+        <div class="corner-brand-badge">HIDEP-SOFT-SG</div>
     </div>
 
     <!-- MODALES -->
@@ -2332,15 +2166,17 @@
         </div>
     </div>
 
-    <div id="facturaModal" class="modal">
+    <div id="facturaModal" class="modal" data-admin-only>
         <div class="modal-content">
             <h2 style="color: var(--accent);">Detalle y Cobro de Orden (POS)</h2>
             <div id="facturaDetalleContenido" style="background: var(--bg-input); padding: 8px; border-radius: 5px; margin-bottom: 8px; font-family: monospace; font-size: 11px; border: 1px solid var(--border-color);">Cargando...</div>
             <form id="formFacturar">
                 <input type="hidden" id="facturaOrdenId">
-                <div class="input-group" style="margin-bottom: 8px;"><label for="facturaManoObra">Costo Mano de Obra ($)</label><input type="number" id="facturaManoObra" value="0" required oninput="calcularTotalModal()"></div>
+                <div class="input-group" style="margin-bottom: 8px;"><label for="facturaManoObra">Valor de mano de obra ($)</label><input type="number" id="facturaManoObra" min="0" step="0.01" required oninput="calcularTotalModal()"></div>
                 <h3 id="facturaTotalModal" class="text-success" style="margin-bottom: 10px;">Total a Pagar: $ 0</h3>
-                <button type="submit" class="btn-action">Cobrar e Imprimir</button>
+                <p id="estadoPreparacionFactura" role="status"></p>
+                <button type="submit" class="btn-action">Confirmar mano de obra</button>
+                <button type="submit" id="cobrarFactura" class="btn-action" disabled>Cobrar e imprimir</button>
                 <button type="button" class="btn-action" style="background: #4a5568; color: white; margin-left: 6px;" onclick="cerrarModal()">Cancelar</button>
             </form>
         </div>
@@ -2387,22 +2223,52 @@
                 <h2 id="tituloModalFotos" style="color: var(--accent); margin:0;">📷 Evidencias Fotográficas de la Orden</h2>
                 <button type="button" class="btn-small" onclick="cerrarModalFotos()">✕</button>
             </div>
-            <div id="galeriaFotosContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; max-height: 50vh; overflow-y: auto; padding: 4px;">
+            <h3>Bitácora</h3>
+            <ol id="bitacoraOrden" style="max-height: 20vh; overflow-y: auto;"></ol>
+            <div id="galeriaFotosContainer" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr)); gap: 12px; max-height: 50vh; overflow-y: auto; padding: 4px;">
                 Cargando fotos...
+            </div>
+            <div id="controlesSeguimiento" hidden style="margin-top: 12px;">
+                <button type="button" class="btn-small" id="generarSeguimiento">Generar o reemplazar enlace</button>
+                <button type="button" class="btn-small" id="revocarSeguimiento">Revocar enlace</button>
+                <p id="estadoSeguimiento" role="status"></p>
+                <input id="enlaceSeguimiento" aria-label="Enlace de seguimiento" readonly hidden style="width: 100%;">
+                <a id="whatsappSeguimiento" target="_blank" rel="noopener noreferrer" hidden>Compartir por WhatsApp</a>
             </div>
         </div>
     </div>
 
-    <!-- SCRIPT INTACTO CON TODA LA LÓGICA FUNCIONAL -->
+    <dialog class="exit-dialog" id="modalAsignacion">
+        <form id="formAsignacion">
+            <h2 id="tituloAsignacion">Asignar mecánico</h2>
+            <input type="hidden" id="asignacionOrdenId">
+            <div class="input-group"><label for="asignacionMecanico">Mecánico asignado</label><select id="asignacionMecanico" required></select></div>
+            <div class="exit-dialog-actions">
+                <button type="submit">Guardar asignación</button>
+                <button type="button" onclick="document.getElementById('modalAsignacion').close()">Cancelar</button>
+            </div>
+        </form>
+    </dialog>
+    <dialog class="exit-dialog" id="modalEditarUsuario">
+        <form id="formEditarUsuario">
+            <h2>Editar usuario</h2>
+            <input type="hidden" id="editarUsuarioId">
+            <div class="input-group"><label for="editarUsuarioNombre">Nombre</label><input id="editarUsuarioNombre" required></div>
+            <div class="input-group"><label for="editarUsuarioLogin">Usuario</label><input id="editarUsuarioLogin" required></div>
+            <div class="input-group"><label for="editarUsuarioRol">Rol</label><select id="editarUsuarioRol" required>
+                <option value="Mecanico">Mecánico</option><option value="Recepcionista">Recepcionista</option><option value="Administrador">Administrador</option>
+            </select></div>
+            <p id="estadoEditarUsuario" role="status"></p>
+            <div class="exit-dialog-actions">
+                <button type="submit">Guardar cambios</button>
+                <button type="button" onclick="document.getElementById('modalEditarUsuario').close()">Cancelar</button>
+            </div>
+        </form>
+    </dialog>
     <script>
-        const nombreUser = localStorage.getItem('taller_nombre') || 'Invitado';
-        const rolUser = localStorage.getItem('taller_rol') || 'Sin rol';
-        const permisosUser = JSON.parse(localStorage.getItem('taller_permisos') || '{}');
-
-        document.getElementById('lblNombre').textContent = nombreUser;
-        document.getElementById('lblRol').textContent = rolUser;
-        if (document.getElementById('lblSidebarNombre')) document.getElementById('lblSidebarNombre').textContent = nombreUser;
-        if (document.getElementById('lblSidebarRol')) document.getElementById('lblSidebarRol').textContent = rolUser;
+        let rolUser;
+        let mecanicosAsignables = [];
+        const esAdministrador = () => rolUser === 'Administrador';
 
         let tarifasGlobales = { t100: 30000, t200: 50000, t400: 80000, tMas: 120000 };
         let inventarioCache = [];
@@ -2443,6 +2309,7 @@
         function iniciarSincronizacionSSE() {
             try {
                 const eventSource = new EventSource('/api/sync-events');
+                eventSource.addEventListener('sesion_revocada', () => location.replace('/'));
                 eventSource.addEventListener('sync', (e) => {
                     try {
                         const payload = JSON.parse(e.data);
@@ -2466,11 +2333,36 @@
             } else if (evento.tipo === 'alerta_stock_leida' || evento.tipo === 'alerta_stock_leida_todas') {
                 const banner = document.getElementById('bannerAlertaStock');
                 if (banner) banner.style.display = 'none';
-            } else if (evento.tipo === 'orden_actualizada') {
+            } else if (evento.tipo === 'orden_terminada' && esPersonalAdministrativo()) {
+                const id = Number(evento.data.ordenId);
+                if (!id || document.getElementById('avisoOrden' + id)) return;
+                const aviso = document.createElement('li');
+                aviso.id = 'avisoOrden' + id;
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'btn-small';
+                boton.textContent = esAdministrador() ? `Preparar cobro de la orden #${id}` : `Revisar la orden terminada #${id}`;
+                boton.onclick = async () => {
+                    if (esAdministrador()) { if (!await abrirModalFactura(id)) return; }
+                    else verFotosOrden(id);
+                    const lista = aviso.parentElement;
+                    aviso.remove();
+                    document.getElementById('avisosOrdenTerminada').hidden = !lista.children.length;
+                };
+                aviso.append(boton);
+                document.getElementById('listaOrdenesTerminadas').append(aviso);
+                document.getElementById('avisosOrdenTerminada').hidden = false;
+            } else if (evento.tipo === 'foto_agregada' && esPersonalAdministrativo()) {
+                const id = Number(evento.data.orden_id);
+                const modal = document.getElementById('modalVerFotosOrden');
+                if (modal.style.display === 'flex' && Number(modal.dataset.ordenId) === id) {
+                    verFotosOrden(id, true);
+                }
+            } else if (evento.tipo === 'orden_actualizada' || evento.tipo === 'asignacion_actualizada') {
                 // Actualizar automáticamente según la pantalla activa
                 const tabActiva = document.querySelector('.tab-content.active')?.id;
-                if (tabActiva === 'ordenes') { cargarOrdenesTabla(); cargarDetallesOrdenActiva().catch(error => reportarErrorUI('repuestos', error, error.message, 'msgRep')); }
-                cargarInventarioTabla();
+                if (tabActiva === 'ordenes') { cargarOrdenesTabla(); if (esAdministrador()) cargarDetallesOrdenActiva().catch(error => reportarErrorUI('repuestos', error, error.message, 'msgRep')); }
+                if (esAdministrador()) cargarInventarioTabla();
                 if (tabActiva === 'inicio') cargarMetricasDashboard();
                 if (tabActiva === 'facturacion') cargarOrdenesFacturacion();
                 if (tabActiva === 'reportes') cargarReporteDetallado();
@@ -2489,7 +2381,7 @@
         function descartarAlertaStock() {
             const banner = document.getElementById('bannerAlertaStock');
             if (banner) banner.style.display = 'none';
-            fetch('/api/alertas-stock/leer-todas', { method: 'PUT' }).catch(() => {});
+            fetch('/api/alertas-stock/leer-todas', { method: 'PUT' }).catch(() => undefined);
         }
 
         function irAInventario() {
@@ -2517,16 +2409,16 @@
                 dialog.showModal();
             });
         }
-        async function salirDelSistema(mode) {
+        async function salirDelSistema(mode, permitirRespaldo = true) {
             if (salidaEnCurso) return;
             salidaEnCurso = true;
             try {
-                if (typeof require === 'function') {
+                if (permitirRespaldo && esAdministrador() && typeof require === 'function') {
                     const channel = mode === 'logout' ? 'app:prepareLogout' : 'app:closeWithBackup';
                     const result = await require('electron').ipcRenderer.invoke(channel);
                     if (result.cancelled || !result.success) return;
                     if (mode === 'close') return;
-                } else {
+                } else if (permitirRespaldo && esAdministrador()) {
                     const choice = await preguntarRespaldo();
                     if (choice === 'cancel') return;
                     if (choice === 'backup') {
@@ -2537,7 +2429,6 @@
                 }
                 const response = await fetch('/api/logout', { method: 'POST' });
                 if (!response.ok && response.status !== 401) throw new Error('No se pudo cerrar la sesi\u00f3n.');
-                localStorage.clear();
                 window.location.replace('/');
             } catch (error) { alert('No se complet\u00f3 la salida: ' + error.message); }
             finally { salidaEnCurso = false; }
@@ -2546,70 +2437,57 @@
 
         // ===== ENVÍO DE MENSAJES Y FACTURA POR WHATSAPP =====
         async function enviarFacturaWhatsApp(ordenId) {
+            const electron = typeof require === 'function' ? require('electron') : null;
+            const ventana = electron ? null : window.open('about:blank', '_blank');
+            if (ventana) ventana.opener = null;
             try {
-                const resO = await fetch(`/api/ordenes?buscar=${ordenId}`);
-                const ordenes = await resO.json();
-                const orden = ordenes.find(o => o.id == ordenId);
-                if (!orden) {
-                    alert('No se encontró la orden especificada.');
-                    return;
-                }
-
+                const share = await fetch(`/api/ordenes/${ordenId}/whatsapp`, { method: 'POST' });
+                const { order: orden, phone: telefono, link, mensaje: error } = await share.json();
+                if (!share.ok) throw new Error(error || 'No se pudo preparar el resumen.');
                 const resD = await fetch(`/api/ordenes/${ordenId}/detalles`);
+                if (!resD.ok) throw new Error('No se pudieron cargar los repuestos.');
                 const detalles = await resD.json();
                 const resConf = await fetch('/api/config');
                 const conf = await resConf.json();
 
-                let totalRepuestos = 0;
-                let repuestosTexto = '';
-                if (detalles && detalles.length > 0) {
-                    detalles.forEach(d => {
-                        const sub = d.cantidad * d.precio_unitario;
-                        totalRepuestos += sub;
-                        repuestosTexto += `   • ${d.repuesto_nombre} (${d.cantidad}x): $${sub.toLocaleString()}\n`;
-                    });
-                } else {
-                    repuestosTexto = '   • Ninguno (Solo mano de obra)\n';
-                }
-
-                const manoObra = Number(orden.costo_mano_obra || 0);
+                const tienePrecios = esAdministrador();
+                const totalRepuestos = tienePrecios ? detalles.reduce((total, item) => total + item.cantidad * item.precio_unitario, 0) : 0;
+                const repuestosTexto = detalles.map(item => `   • ${item.repuesto_nombre} (${item.cantidad} un.)${tienePrecios ? ': $' + (item.cantidad * item.precio_unitario).toLocaleString() : ''}`).join('\n') || '   • Ninguno';
+                const manoObra = tienePrecios ? Number(orden.costo_mano_obra || 0) : 0;
                 const total = totalRepuestos + manoObra;
 
-                let telefono = String(orden.cliente_telefono || '').replace(/\D/g, '');
-                if (telefono.length === 10 && !telefono.startsWith('57')) {
-                    telefono = '57' + telefono;
-                }
-
-                const nombreTaller = conf.nombre_taller || 'SG-TALLER DE MOTOS';
+                const nombreTaller = conf.nombre_taller || 'HIDEP-SOFT-SG - Taller de Motos';
                 const eslogan = conf.eslogan_taller || 'Pasión y Precisión en Cada Kilómetro';
 
                 const mensaje = 
 `🏍️ *${nombreTaller}*
 _${eslogan}_
 
-¡Hola, *${orden.cliente_nombre}*! Tu motocicleta está lista para entrega en nuestro taller.
+¡Hola, *${orden.nombre}*! Tu motocicleta está lista para entrega en nuestro taller.
 
 📋 *RESUMEN DE SERVICIO (Orden #${orden.id}):*
-• *Moto:* ${orden.moto_marca || 'Motocicleta'} (Placa: *${orden.moto_placa}*)
-• *Mecánico Asignado:* ${orden.mecanico_nombre || 'Especialista'}
+• *Placa:* ${orden.placa}
+• *Estado:* Terminada, lista para entrega
 • *Trabajo Realizado:* ${orden.trabajo_realizado || 'Mantenimiento General'}
 
-🛠️ *Mano de Obra:* $${manoObra.toLocaleString()}
-📦 *Repuestos Utilizados:*
+${tienePrecios ? `🛠️ *Mano de obra:* $${manoObra.toLocaleString()}\n` : ''}📦 *Repuestos utilizados:*
 ${repuestosTexto}
-💰 *TOTAL A PAGAR: $${total.toLocaleString()}*
+${tienePrecios ? `💰 *TOTAL A PAGAR: $${total.toLocaleString()}*\n` : ''}
 
-📍 Ya puedes pasar a retirar tu motocicleta. ¡Gracias por confiar en nosotros!`;
+${link ? '📷 Consulta el historial y las evidencias usando el número de orden o la placa: ' + link + '\n\n' : ''}📍 Ya puedes pasar a retirar tu motocicleta. ¡Gracias por confiar en nosotros!`;
 
                 const url = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
-                window.open(url, '_blank');
+                if (electron) await electron.shell.openExternal(url);
+                else if (ventana) ventana.location.replace(url);
+                else window.location.assign(url);
             } catch (e) {
+                ventana?.close();
                 alert('Error al generar mensaje de WhatsApp: ' + e.message);
             }
         }
 
         function reportarErrorUI(contexto, error, mensaje, destinoId) {
-            console.error(`[HIDEP-SOFT] ${contexto}`, error);
+            console.error(`[HIDEP-SOFT-SG] ${contexto}`, error);
             const destino = destinoId ? document.getElementById(destinoId) : null;
             if (destino) destino.textContent = mensaje;
             const anuncio = document.getElementById('globalStatus');
@@ -2627,7 +2505,7 @@ ${repuestosTexto}
                 const conf = await res.json();
                 if (conf.nombre_taller) {
                     document.getElementById('headerTitulo').textContent = `🏍️ ${conf.nombre_taller}`;
-                    document.title = `${conf.nombre_taller} | HIDEP-SOFT`;
+                    document.title = conf.nombre_taller;
                 }
                 if (conf.tema) cambiarTemaVisual(conf.tema);
                 if (conf.tarifa_100) tarifasGlobales.t100 = Number(conf.tarifa_100);
@@ -2644,7 +2522,6 @@ ${repuestosTexto}
                 }
             } catch (error) { reportarErrorUI('configuración visual', error, 'No se pudo cargar la configuración; se mantienen los valores predeterminados.'); }
         }
-        aplicarConfigVisual();
 
         function cambiarTemaVisual(tema) {
             const allowedThemes = ['dark', 'dark-graphite', 'dark-emerald', 'light-amber', 'light-blue', 'light-emerald'];
@@ -2654,7 +2531,51 @@ ${repuestosTexto}
             document.body.classList.toggle('light-theme', selectedTheme.startsWith('light-'));
         }
 
+        const dashboardMenu = document.getElementById('dashboardMenu');
+        const dashboardNav = document.getElementById('dashboardNav');
+        function setDashboardMenu(open) {
+            dashboardMenu.setAttribute('aria-expanded', String(open));
+            dashboardNav.classList.toggle('mobile-open', open);
+        }
+        dashboardMenu.addEventListener('click', () => setDashboardMenu(dashboardMenu.getAttribute('aria-expanded') !== 'true'));
+        dashboardNav.addEventListener('keydown', event => {
+            if (event.key !== 'Escape' || dashboardMenu.getAttribute('aria-expanded') !== 'true') return;
+            setDashboardMenu(false);
+            dashboardMenu.focus();
+        });
+
+        for (const table of document.querySelectorAll('.tab-content table')) {
+            const headings = [...table.querySelectorAll('thead th')].map(header => header.textContent.trim());
+            table.setAttribute('role', 'table');
+            for (const group of table.querySelectorAll('thead, tbody')) group.setAttribute('role', 'rowgroup');
+            for (const row of table.tHead?.rows || []) {
+                row.setAttribute('role', 'row');
+                for (const cell of row.cells) cell.setAttribute('role', 'columnheader');
+            }
+            for (const body of table.tBodies) {
+                const labelRows = () => {
+                    for (const row of body.rows) {
+                        row.setAttribute('role', 'row');
+                        let column = 0;
+                        for (const cell of row.cells) {
+                            cell.setAttribute('role', 'cell');
+                            if (cell.colSpan === 1) cell.dataset.label = headings[column] || '';
+                            column += cell.colSpan;
+                        }
+                    }
+                };
+                labelRows();
+                new MutationObserver(labelRows).observe(body, { childList: true });
+            }
+        }
+
         function cambiarPestana(evt, idTab) {
+            const panel = document.getElementById(idTab);
+            if (!panel || (panel.hasAttribute('data-admin-only') && !esAdministrador())) return;
+            if (dashboardMenu.getAttribute('aria-expanded') === 'true') {
+                setDashboardMenu(false);
+                if (dashboardMenu.getClientRects().length) dashboardMenu.focus();
+            }
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(idTab).classList.add('active');
@@ -2682,78 +2603,79 @@ ${repuestosTexto}
             await salirDelSistema('logout');
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            iniciarRelojDigital();
-            iniciarSincronizacionSSE();
-            configurarVistaPorRol();
-            if (rolUser !== 'Mecanico') { cargarMetricasDashboard(); cargarMotosTabla(); cargarCitas(); }
-            cargarDatosSelectOrdenes();
-            cargarOrdenesTabla();
-            cargarInventarioTabla();
-            if (esPersonalAdministrativo()) {
-                fetch('/api/alertas-stock').then(response => {
-                    if (!response.ok) throw new Error('No se pudieron consultar las alertas.');
-                    return response.json();
-                }).then(alertas => {
-                    if (alertas.length) mostrarAlertaStockBanner(alertas[0]);
-                }).catch(error => reportarErrorUI('alertas de inventario', error, error.message, 'msgRep'));
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/session', { cache: 'no-store' });
+                if (!response.ok) return location.replace('/');
+                const session = await response.json();
+                rolUser = session.rol;
+                document.getElementById('recoveryUsername').value = session.username || '';
+                if (rolUser === 'Mecanico') return location.replace('/mobile.html');
+                if (!esPersonalAdministrativo()) return location.replace('/');
+                if (esDispositivoTactilPortatil()) {
+                    document.getElementById('avisoEscritorio').hidden = false;
+                    return;
+                }
+                document.querySelectorAll('[data-admin-only]').forEach(control => { control.hidden = !esAdministrador(); });
+                if (!esAdministrador()) document.getElementById('ordenManoObra').disabled = true;
+                for (const id of ['lblNombre', 'lblSidebarNombre']) document.getElementById(id).textContent = session.nombre;
+                for (const id of ['lblRol', 'lblSidebarRol']) document.getElementById(id).textContent = session.rol;
+                document.getElementById('workspaceDashboard').hidden = false;
+                iniciarRelojDigital();
+                iniciarSincronizacionSSE();
+                aplicarConfigVisual();
+                cargarMetricasDashboard();
+                cargarMotosTabla();
+                cargarCitas();
+                cargarDatosSelectOrdenes();
+                cargarOrdenesTabla();
+                if (esAdministrador()) cargarInventarioTabla();
+                const alerts = await fetch('/api/alertas-stock').then(res => res.json());
+                if (alerts.length) mostrarAlertaStockBanner(alerts[0]);
+            } catch (error) {
+                reportarErrorUI('inicio del panel', error, 'No se pudo abrir el panel.');
             }
         });
 
+        document.getElementById('salirAvisoEscritorio').addEventListener('click', () => salirDelSistema('logout', false));
+
         function esPersonalAdministrativo() {
             return ['Administrador', 'Recepcionista'].includes(rolUser);
-        }
-
-        function configurarVistaPorRol() {
-            const isMechanic = rolUser === 'Mecanico';
-            if (!isMechanic) return;
-
-            document.querySelectorAll('.tab-btn').forEach((button) => {
-                if (button.id !== 'navOrdenes') button.hidden = true;
-            });
-            document.querySelectorAll('.tab-content').forEach((panel) => {
-                if (panel.id !== 'ordenes') panel.hidden = true;
-            });
-            document.getElementById('navOrdenes').classList.add('active');
-            document.getElementById('navInicio').classList.remove('active');
-            document.getElementById('inicio').classList.remove('active');
-            document.getElementById('ordenes').classList.add('active');
-            document.querySelectorAll('#ordenesAbiertasSection th:nth-child(7)').forEach((cell) => { cell.hidden = true; });
-            document.getElementById('breadcrumbCurrent').textContent = 'Órdenes asignadas';
-            document.getElementById('crearOrdenHeader').hidden = true;
-            document.getElementById('formOrden').hidden = true;
-            document.querySelector('#orderActionsLayout > div:first-child').hidden = false;
-            document.querySelectorAll('.admin-pricing-control').forEach((control) => { control.hidden = true; });
-            const valueInput = document.getElementById('repCostoManoObra');
-            valueInput.required = false;
         }
 
         async function cargarMetricasDashboard() {
             try {
                 const resOrd = await fetch('/api/ordenes');
                 const ordenes = await resOrd.json();
+                document.getElementById('statOrdenesTotal').textContent = ordenes.length;
                 const activas = ordenes.filter(o => o.estado === 'En proceso');
+                const fechaTaller = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', dateStyle: 'short' });
+                const hoy = fechaTaller.format(new Date());
+                const ordenesHoy = ordenes.filter(order => {
+                    const ingreso = new Date(String(order.fecha_ingreso || '').replace(' ', 'T') + 'Z');
+                    return Number.isFinite(ingreso.getTime()) && fechaTaller.format(ingreso) === hoy;
+                });
                 document.getElementById('statOrdenesActivas').textContent = activas.length;
-                document.getElementById('homeOrdersPanel').hidden = activas.length === 0;
-                document.getElementById('inicio').classList.toggle('no-active-orders', activas.length === 0);
+                document.getElementById('homeOrdersPanel').hidden = ordenesHoy.length === 0;
+                document.getElementById('inicio').classList.toggle('no-active-orders', ordenesHoy.length === 0);
 
                 const tbodyLat = document.getElementById('tablaLateralOrdenes');
-                tbodyLat.innerHTML = '';
-                if (activas.length > 0) {
-                    activas.slice(0, 5).forEach(o => {
-                        tbodyLat.innerHTML += `<tr><td><strong>${o.moto_placa}</strong> (${o.moto_marca || 'Moto'})</td><td>${o.tipo_mantenimiento}</td><td><span class="badge badge-preventivo">En Reparación</span></td></tr>`;
-                    });
+                tbodyLat.innerHTML = ordenesHoy.map(o => `<tr><td><strong>${escaparHTML(o.moto_placa)}</strong></td>
+                    <td>${escaparHTML(o.mecanico_nombre || 'Sin asignar')}</td><td>${escaparHTML(o.estado)}</td><td>
+                    ${o.estado === 'En proceso' ? `<button type="button" class="btn-small" data-asignar-placa="${Number(o.id)}">Reasignar</button>` : '—'}
+                    </td></tr>`).join('');
+                for (const button of tbodyLat.querySelectorAll('[data-asignar-placa]')) {
+                    button.onclick = () => abrirAsignacionOrden(ordenesHoy.find(order => Number(order.id) === Number(button.dataset.asignarPlaca)));
                 }
 
-                const resConta = await fetch('/api/reportes/contabilidad');
-                const conta = await resConta.json();
-                if (conta.ganancia_total) {
-                    document.getElementById('statIngresosMes').textContent = `$ ${Number(conta.ganancia_total).toLocaleString()}`;
+                if (esAdministrador()) {
+                    const resConta = await fetch('/api/reportes/contabilidad');
+                    const conta = await resConta.json();
+                    document.getElementById('statIngresosMes').textContent = `$ ${Number(conta.ganancia_total || 0).toLocaleString()}`;
                 }
-
-                const resUsers = await fetch('/api/usuarios');
+                const resUsers = await fetch('/api/mecanicos');
                 const users = await resUsers.json();
-                document.getElementById('statMecanicos').textContent = users.filter(u => u.rol === 'Mecanico').length || users.length;
+                document.getElementById('statMecanicos').textContent = users.length;
 
                 const resCitas = await fetch('/api/citas');
                 const citas = await resCitas.json();
@@ -2766,7 +2688,7 @@ ${repuestosTexto}
                     latCitas.innerHTML = '<div class="agenda-item-box">No hay citas pendientes.</div>';
                 } else {
                     citasPendientes.slice(0, 4).forEach(c => {
-                        latCitas.innerHTML += `<div class="agenda-item-box"><b>${c.moto_placa}</b> (${c.hora_cita || 'Hoy'})<br><span style="color:var(--text-muted);">Cliente: ${c.cliente_nombre}</span><br><span class="badge badge-predictivo">${c.estado}</span></div>`;
+                        latCitas.innerHTML += `<div class="agenda-item-box"><b>${escaparHTML(c.moto_placa)}</b> (${escaparHTML(c.hora_cita || 'Hoy')})<br><span style="color:var(--text-muted);">Cliente: ${escaparHTML(c.cliente_nombre)}</span><br><span class="badge badge-predictivo">${escaparHTML(c.estado)}</span></div>`;
                     });
                 }
             } catch (error) { reportarErrorUI('métricas del panel', error, 'No se pudieron actualizar las métricas.'); }
@@ -2810,7 +2732,7 @@ ${repuestosTexto}
 
                     const motosCliente = motos.filter(m => m.cliente_id === exacto.cliente_id);
                     if (motosCliente.length > 0) {
-                        let listadoMotosStr = motosCliente.map(m => `<b style="color:var(--accent);">${m.placa}</b> (${m.marca} ${m.modelo || ''})`).join(', ');
+                        let listadoMotosStr = motosCliente.map(m => `<b style="color:var(--accent);">${escaparHTML(m.placa)}</b> (${escaparHTML(m.marca)} ${escaparHTML(m.modelo)})`).join(', ');
                         contMotos.innerHTML = `Motos registradas: ${listadoMotosStr}<br><i>💡 Ingrese otra placa abajo para adicionar moto.</i>`;
                     } else {
                         contMotos.textContent = 'Motos registradas: Ninguna';
@@ -2855,7 +2777,7 @@ ${repuestosTexto}
                 const motosM = await resM.json();
                 const asociadas = motosM.filter(m => m.cliente_id === encontrado.id);
                 if (asociadas.length > 0) {
-                    let str = asociadas.map(m => `<b style="color:var(--accent);">${m.placa}</b> (${m.marca})`).join(', ');
+                    let str = asociadas.map(m => `<b style="color:var(--accent);">${escaparHTML(m.placa)}</b> (${escaparHTML(m.marca)})`).join(', ');
                     contMotos.innerHTML = `Motos del cliente: ${str}`;
                 } else {
                     contMotos.textContent = 'Motos registradas: Ninguna';
@@ -2961,18 +2883,22 @@ ${repuestosTexto}
             motos.forEach(m => {
                 const msgWap = encodeURIComponent(`¡Hola ${m.cliente_nombre}! Te recordamos el estado de tu moto ${m.marca} (Placa: ${m.placa}). ¡Te esperamos en el taller!`);
                 tbody.innerHTML += `<tr>
-                    <td><strong>${m.placa}</strong></td>
-                    <td>${m.marca} ${m.modelo || ''}</td>
-                    <td>${m.cilindraje || 'N/A'} cc</td>
-                    <td>${m.kilometraje ? m.kilometraje + ' km' : 'N/A'}</td>
-                    <td>${m.cliente_nombre}</td>
+                    <td><strong>${escaparHTML(m.placa)}</strong></td>
+                    <td>${escaparHTML(m.marca)} ${escaparHTML(m.modelo || '')}</td>
+                    <td>${escaparHTML(m.cilindraje || 'N/A')} cc</td>
+                    <td>${escaparHTML(m.kilometraje ? m.kilometraje + ' km' : 'N/A')}</td>
+                    <td>${escaparHTML(m.cliente_nombre)}</td>
                     <td>
                         <button class="btn-small" onclick="crearOrdenParaMoto(${m.id})">Orden</button>
-                        <button class="btn-small" style="background-color: #f59e0b; color: #000;" onclick="verHistorialMoto(${m.id}, '${m.placa}')">Historial</button>
-                        <a class="btn-small btn-action-success" href="https://wa.me/57${m.cliente_telefono || ''}?text=${msgWap}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp, contactar al cliente">💬 WhatsApp</a>
+                        <button class="btn-small" style="background-color: #f59e0b; color: #000;" data-historial-moto="${Number(m.id)}">Historial</button>
+                        <a class="btn-small btn-action-success" href="https://wa.me/57${String(m.cliente_telefono || '').replace(/\D/g, '')}?text=${msgWap}" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp, contactar al cliente">💬 WhatsApp</a>
                     </td>
                 </tr>`;
             });
+            for (const button of tbody.querySelectorAll('[data-historial-moto]')) {
+                const moto = motos.find(item => Number(item.id) === Number(button.dataset.historialMoto));
+                if (moto) button.onclick = () => verHistorialMoto(moto.id, moto.placa);
+            }
         }
 
         async function cargarMotosTabla() { buscarGlobal(); }
@@ -3008,7 +2934,7 @@ ${repuestosTexto}
                 content.innerHTML = orders.map((order, index) => {
                     const details = detailsByOrder[index];
                     const parts = details.map((detail) =>
-                        `<li>${escaparHTML(detail.repuesto_nombre)} (${Number(detail.cantidad)}x) - $ ${(Number(detail.cantidad) * Number(detail.precio_unitario)).toLocaleString()}</li>`
+                        `<li>${escaparHTML(detail.repuesto_nombre)} (${Number(detail.cantidad)} un.)${esAdministrador() ? ` · $ ${(Number(detail.cantidad) * Number(detail.precio_unitario)).toLocaleString()}` : ''}</li>`
                     ).join('');
                     const work = escaparHTML(order.trabajo_realizado || 'N/A');
                     const date = escaparHTML(order.fecha_ingreso || '');
@@ -3016,8 +2942,9 @@ ${repuestosTexto}
                     const partsMarkup = parts ? `<ul>${parts}</ul>` : 'Ninguno';
                     return `<div class="history-order-card">
                         <p><b>Orden #${Number(order.id)}</b> | Fecha: ${date} | Estado: <b>${state}</b></p>
-                        <p><b>Trabajos:</b> ${work} | <b>Mano de Obra:</b> $ ${Number(order.costo_mano_obra || 0).toLocaleString()}</p>
+                        <p><b>Trabajos:</b> ${work}${esAdministrador() ? ` | <b>Mano de obra:</b> $ ${Number(order.costo_mano_obra || 0).toLocaleString()}` : ''}</p>
                         <p><b>Repuestos:</b> ${partsMarkup}</p>
+                        <button type="button" class="btn-small" onclick="verFotosOrden(${Number(order.id)})">Bitácora y evidencias</button>
                     </div>`;
                 }).join('');
             } catch (error) {
@@ -3095,7 +3022,7 @@ ${repuestosTexto}
                 const opcion = document.createElement('button');
                 opcion.type = 'button';
                 opcion.className = 'suggestion-item';
-                const precio = inputIdValue === 'solicitudRepuestoId' ? '' : ` - $${Number(item.precio_venta).toLocaleString()}`;
+                const precio = !esAdministrador() ? '' : ` - $${Number(item.precio_venta).toLocaleString()}`;
                 opcion.textContent = `${item.nombre} [Ref: ${item.codigo || 'N/A'}] - Stock: ${item.stock}${precio}`;
                 opcion.addEventListener('click', () => {
                     seleccionarRepuestoFiltro(item.id, item.nombre, item.codigo, item.stock, inputIdValue, suggestionsId);
@@ -3108,8 +3035,7 @@ ${repuestosTexto}
         }
 
         function seleccionarRepuestoFiltro(id, nombre, codigo, stock, inputIdValue = 'usoRepuestoId', suggestionsId = 'sugerenciasRepuestos') {
-            const isRequest = inputIdValue === 'solicitudRepuestoId';
-            const input = document.getElementById(isRequest ? 'inputBuscadorSolicitud' : 'inputBuscadorRepuesto');
+            const input = document.getElementById('inputBuscadorRepuesto');
             input.value = `${nombre} (${codigo || 'N/A'}) [Stock: ${stock}]`;
             document.getElementById(inputIdValue).value = id;
             document.getElementById(suggestionsId).style.display = 'none';
@@ -3119,29 +3045,26 @@ ${repuestosTexto}
 
         async function cargarDatosSelectOrdenes() {
             try {
-                if (rolUser !== 'Mecanico') {
+                {
                     const resMotos = await fetch('/api/motos');
                     if (!resMotos.ok) throw new Error('No se pudieron consultar las motos.');
                     listaMotosCache = await resMotos.json();
-                } else { listaMotosCache = []; }
+                }
                 const selectMoto = document.getElementById('ordenMotoId');
                 if (selectMoto) {
                     selectMoto.innerHTML = '<option value="">Seleccione moto...</option>';
-                    listaMotosCache.forEach(m => selectMoto.innerHTML += `<option value="${m.id}">${m.placa} - ${m.marca} (${m.cilindraje}cc)</option>`);
+                    listaMotosCache.forEach(m => selectMoto.innerHTML += `<option value="${Number(m.id)}">${escaparHTML(m.placa)} - ${escaparHTML(m.marca)} (${escaparHTML(m.cilindraje)}cc)</option>`);
                 }
 
-                const resUsers = await fetch('/api/usuarios');
-                const usuarios = await resUsers.json();
-                const selectMec = document.getElementById('ordenMecanicoId');
-                if (selectMec) {
-                    selectMec.innerHTML = '<option value="">Seleccione mecánico...</option>';
-                    usuarios.forEach(u => selectMec.innerHTML += `<option value="${u.id}">${u.nombre}</option>`);
-                }
+                const resUsers = await fetch('/api/mecanicos');
+                if (!resUsers.ok) throw new Error('No se pudieron consultar los mecánicos.');
+                mecanicosAsignables = await resUsers.json();
+                const select = document.getElementById('ordenMecanicoId');
+                llenarSelectorMecanico(select, select.value);
 
                 const resOrdenes = await fetch('/api/ordenes');
                 const ordenes = await resOrdenes.json();
-                const ordenesAbiertas = ordenes.filter((orden) => orden.estado === 'En proceso' &&
-                    (rolUser !== 'Mecanico' || orden.mecanico_nombre === nombreUser));
+                const ordenesAbiertas = ordenes.filter((orden) => orden.estado === 'En proceso');
                 ordenesAbiertasCache = ordenesAbiertas;
                 const datalist = document.getElementById('ordenesAbiertasDatalist');
                 datalist.replaceChildren(...ordenesAbiertas.map((orden) => {
@@ -3163,7 +3086,7 @@ ${repuestosTexto}
                     select.replaceChildren(new Option('', ''));
                     ordenesAbiertas.forEach((orden) => {
                         const option = new Option(etiquetaOrdenAbierta(orden), String(orden.id));
-                        if (includeCost) option.dataset.costo = String(Number(orden.costo_mano_obra || 0));
+                        if (includeCost && esAdministrador()) option.dataset.costo = String(Number(orden.costo_mano_obra || 0));
                         select.add(option);
                     });
                 });
@@ -3251,7 +3174,7 @@ ${repuestosTexto}
                 const select = document.getElementById(id);
                 if (!Array.from(select.options).some((option) => option.value === String(orden.id))) {
                     const option = new Option(label, String(orden.id));
-                    if (id === 'repOrdenId') option.dataset.costo = String(Number(orden.costo_mano_obra || 0));
+                    if (id === 'repOrdenId' && esAdministrador()) option.dataset.costo = String(Number(orden.costo_mano_obra || 0));
                     select.add(option);
                 }
                 select.value = String(orden.id);
@@ -3265,6 +3188,7 @@ ${repuestosTexto}
         }
 
         function sugerirManoDeObra() {
+            if (!esAdministrador()) return;
             const motoId = document.getElementById('ordenMotoId').value;
             const moto = listaMotosCache.find(m => m.id == motoId);
             if (!moto) return;
@@ -3286,10 +3210,11 @@ ${repuestosTexto}
                     mecanico_id: document.getElementById('ordenMecanicoId').value,
                     tipo_mantenimiento: document.getElementById('ordenTipo').value,
                     motivo_ingreso: document.getElementById('ordenMotivo').value,
-                    costo_mano_obra: document.getElementById('ordenManoObra').value
+                    ...(esAdministrador() ? { costo_mano_obra: document.getElementById('ordenManoObra').value } : {})
                 })
             });
             if (res.ok) { document.getElementById('formOrden').reset(); cargarOrdenesTabla(); cargarDatosSelectOrdenes(); }
+            else document.getElementById('msgOrden').textContent = (await res.json()).mensaje || 'No se pudo crear la orden.';
         });
 
         async function cargarDetallesOrdenActiva() {
@@ -3343,35 +3268,6 @@ ${repuestosTexto}
             finally { if (button) button.disabled = false; }
         });
 
-        document.getElementById('formSolicitarRepuesto').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const ordenId = document.getElementById('repOrdenId').value;
-            const repuestoId = document.getElementById('solicitudRepuestoId').value;
-            const cantidad = Number(document.getElementById('solicitudCantidad').value);
-            const mensaje = document.getElementById('msgRep');
-            if (!ordenId || !repuestoId || !Number.isInteger(cantidad) || cantidad < 1) {
-                mensaje.textContent = 'Selecciona la orden abierta, el repuesto y la cantidad solicitada.';
-                mensaje.dataset.state = 'error';
-                return;
-            }
-            try {
-                const response = await fetch(`/api/ordenes/${ordenId}/repuestos`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ repuesto_id: repuestoId, cantidad })
-                });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.mensaje || 'No se pudo registrar el repuesto solicitado.');
-                mensaje.dataset.state = 'success';
-                mensaje.textContent = result.mensaje;
-                document.getElementById('formSolicitarRepuesto').reset();
-                document.getElementById('solicitudRepuestoId').value = '';
-                await Promise.all([cargarDetallesOrdenActiva(), cargarInventarioTabla()]);
-            } catch (error) {
-                reportarErrorUI('solicitud de repuesto', error, error.message || 'No se pudo registrar el repuesto solicitado.', 'msgRep');
-            }
-        });
-
         async function actualizarManoDeObra() {
             const ordenId = document.getElementById('repOrdenId').value;
             const costoInput = document.getElementById('repCostoManoObra');
@@ -3419,20 +3315,9 @@ ${repuestosTexto}
             if (!ordenId || !nuevoAvance) return;
 
             try {
-                const resOrd = await fetch(`/api/ordenes?buscar=${ordenId}`);
-                const ordenes = await resOrd.json();
-                const ordenActual = ordenes.find(o => o.id == ordenId);
-                
-                let historialAcumulado = ordenActual && ordenActual.trabajo_realizado ? ordenActual.trabajo_realizado : '';
-                if (historialAcumulado && historialAcumulado !== 'En proceso') {
-                    historialAcumulado += ` | ${nuevoAvance}`;
-                } else {
-                    historialAcumulado = nuevoAvance;
-                }
-
                 const res = await fetch(`/api/ordenes/${ordenId}/reportar`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trabajo_realizado: historialAcumulado })
+                    body: JSON.stringify({ trabajo_realizado: nuevoAvance })
                 });
 
                 if (res.ok) {
@@ -3456,8 +3341,7 @@ ${repuestosTexto}
                 const response = await fetch(`/api/ordenes?buscar=${encodeURIComponent(buscar)}`);
                 if (!response.ok) throw new Error(`HTTP ${response.status} al buscar órdenes`);
                 const ordenes = await response.json();
-                ordenesBusquedaCache = ordenes.filter((orden) => orden.estado === 'En proceso' &&
-                    (rolUser !== 'Mecanico' || orden.mecanico_nombre === nombreUser));
+                ordenesBusquedaCache = ordenes;
                 document.getElementById('ordenesAbiertasSection').hidden = ordenesBusquedaCache.length === 0;
                 tbody.innerHTML = ordenesBusquedaCache.map((orden) => {
                     const badgeClass = orden.tipo_mantenimiento === 'Correctivo'
@@ -3471,11 +3355,13 @@ ${repuestosTexto}
                         <td><span class="badge ${badgeClass}">${escaparHTML(orden.tipo_mantenimiento)}</span></td>
                         <td>${escaparHTML(orden.mecanico_nombre)}</td>
                         <td><b>${escaparHTML(orden.estado)}</b></td>
-                        <td ${rolUser === 'Mecanico' ? 'hidden' : ''}>$ ${Number(orden.costo_mano_obra || 0).toLocaleString()}</td>
+                        <td ${esAdministrador() ? '' : 'hidden'}>${esAdministrador() ? '$ ' + Number(orden.costo_mano_obra || 0).toLocaleString() : ''}</td>
                         <td class="order-work-summary">${escaparHTML(orden.trabajo_realizado || 'En proceso')}</td>
-                        <td style="white-space: nowrap;">
-                            <button type="button" class="btn-small" aria-label="Gestionar orden #${id}" onclick="seleccionarOrdenGestion(${id})">Gestionar</button>
-                            <button type="button" class="btn-small" style="margin-left:4px;" onclick="verFotosOrden(${id})" title="Ver evidencias fotográficas">📷 Fotos</button>
+                        <td>
+                            ${esAdministrador() && orden.estado === 'En proceso' ? `<button type="button" class="btn-small" onclick="seleccionarOrdenGestion(${id})">Gestionar</button>` : ''}
+                            <button type="button" class="btn-small" onclick="verFotosOrden(${id})">Bitácora y evidencias</button>
+                            ${orden.estado === 'En proceso' ? `<button type="button" class="btn-small" onclick="reasignarOrden(${id})">Reasignar</button>` : ''}
+                            ${!esAdministrador() && ['Terminada', 'Listo para entrega', 'Facturada'].includes(orden.estado) ? `<button type="button" class="btn-whatsapp" onclick="enviarFacturaWhatsApp(${id})">WhatsApp</button>` : ''}
                         </td>
                     </tr>`;
                 }).join('');
@@ -3485,6 +3371,53 @@ ${repuestosTexto}
                 reportarErrorUI('búsqueda de órdenes abiertas', error, 'No se pudieron cargar las órdenes abiertas.', 'msgOrden');
             }
         }
+
+        function llenarSelectorMecanico(select, selected = '') {
+            select.replaceChildren(new Option('Selecciona un mecánico', ''));
+            mecanicosAsignables.forEach(user => select.add(new Option(user.nombre, user.id)));
+            select.value = String(selected);
+        }
+
+        let ingresoCita = null;
+        function reasignarOrden(id) {
+            abrirAsignacionOrden(ordenesBusquedaCache.find(order => Number(order.id) === id));
+        }
+
+        function abrirAsignacionOrden(order) {
+            if (!order) return;
+            const id = Number(order.id);
+            ingresoCita = null;
+            document.getElementById('asignacionOrdenId').value = id;
+            document.getElementById('tituloAsignacion').textContent = `Asignar mecánico · ${order.moto_placa} · Orden #${id}`;
+            llenarSelectorMecanico(document.getElementById('asignacionMecanico'), order.mecanico_id);
+            document.getElementById('modalAsignacion').showModal();
+        }
+
+        document.getElementById('formAsignacion').addEventListener('submit', async event => {
+            event.preventDefault();
+            const id = document.getElementById('asignacionOrdenId').value;
+            const cita = ingresoCita;
+            const mecanico_id = document.getElementById('asignacionMecanico').value;
+            const button = event.submitter;
+            if (button) button.disabled = true;
+            try {
+                const route = cita ? `/api/citas/${cita.id}/convertir` : `/api/ordenes/${id}/asignacion`;
+                const response = await fetch(route, {
+                    method: cita ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mecanico_id, motivo_ingreso: cita?.motivo })
+                });
+                if (!response.ok) throw new Error((await response.json()).mensaje);
+                document.getElementById('modalAsignacion').close();
+                if (cita) {
+                    cargarCitas();
+                    cargarDatosSelectOrdenes();
+                    document.getElementById('navOrdenes').click();
+                }
+                cargarOrdenesTabla();
+                cargarMetricasDashboard();
+            } catch (error) { alert(error.message || 'No se pudo reasignar la orden.'); }
+            finally { if (button) button.disabled = false; }
+        });
 
         // CITAS Y AGENDAMIENTO
         async function cargarCitas() {
@@ -3503,17 +3436,21 @@ ${repuestosTexto}
                     tbody.innerHTML += `
                         <tr>
                             <td>#${c.id}</td>
-                            <td><strong>${c.cliente_nombre}</strong></td>
-                            <td>${c.moto_placa}</td>
-                            <td>${c.fecha_cita} ${c.hora_cita || ''}</td>
-                            <td>${c.motivo}</td>
-                            <td><span class="badge ${esAtendida ? 'badge-preventivo' : 'badge-predictivo'}">${c.estado}</span></td>
+                            <td><strong>${escaparHTML(c.cliente_nombre)}</strong></td>
+                            <td>${escaparHTML(c.moto_placa)}</td>
+                            <td>${escaparHTML(c.fecha_cita)} ${escaparHTML(c.hora_cita || '')}</td>
+                            <td>${escaparHTML(c.motivo)}</td>
+                            <td><span class="badge ${esAtendida ? 'badge-preventivo' : 'badge-predictivo'}">${escaparHTML(c.estado)}</span></td>
                             <td style="text-align: center;">
-                                ${!esAtendida ? `<button class="btn-small btn-action-info" onclick="convertirCitaAOrden(${c.id}, '${c.moto_placa}', '${c.motivo}')">🚀 Ingresar</button>` : `<span style="font-size:10px;">Atendida</span>`}
+                                ${!esAtendida ? `<button class="btn-small btn-action-info" data-ingresar-cita="${Number(c.id)}">🚀 Ingresar</button>` : `<span style="font-size:10px;">Atendida</span>`}
                             </td>
                         </tr>
                     `;
                 });
+                for (const button of tbody.querySelectorAll('[data-ingresar-cita]')) {
+                    const cita = citas.find(item => Number(item.id) === Number(button.dataset.ingresarCita));
+                    if (cita) button.onclick = () => convertirCitaAOrden(cita.id, cita.moto_placa, cita.motivo);
+                }
             } catch (error) { reportarErrorUI('carga de citas', error, 'No se pudo cargar la agenda.', 'msgCitaStatus'); }
         }
 
@@ -3555,20 +3492,11 @@ ${repuestosTexto}
             } catch (error) { reportarErrorUI('creación de cita', error, 'No se pudo programar la cita.', 'msgCitaStatus'); }
         }
 
-        async function convertirCitaAOrden(citaId, placa, motivoCita) {
-            if (!confirm(`¿Confirma el ingreso de la moto ${placa} al taller?`)) return;
-            try {
-                const res = await fetch(`/api/citas/${citaId}/convertir`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ motivo_ingreso: motivoCita })
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    alert(`✨ Cita convertida en Orden #${data.orden_id}`);
-                    cargarCitas(); cargarOrdenesTabla(); cargarDatosSelectOrdenes();
-                    document.getElementById('navOrdenes').click();
-                }
-            } catch (error) { reportarErrorUI('conversión de cita a orden', error, 'No se pudo convertir la cita en orden.', 'msgCitaStatus'); }
+        function convertirCitaAOrden(citaId, placa, motivoCita) {
+            ingresoCita = { id: citaId, motivo: motivoCita };
+            document.getElementById('tituloAsignacion').textContent = `Ingresar al taller · ${placa}`;
+            llenarSelectorMecanico(document.getElementById('asignacionMecanico'));
+            document.getElementById('modalAsignacion').showModal();
         }
 
         let ordenSeleccionadaCache = null;
@@ -3581,15 +3509,22 @@ ${repuestosTexto}
             const tbody = document.getElementById('tablaFacturacionBody');
             tbody.innerHTML = '';
             ordenes.forEach(o => {
-                let accion = `<button class="btn-small btn-action-success" onclick="abrirModalFactura(${o.id})">Cobrar</button>`;
-                if (o.estado === 'Facturada') {
-                    accion = `<span class="text-success" style="font-weight: bold; margin-right: 4px;">Facturada</span> 
-                              <button class="btn-small" onclick="imprimirFactura(${o.id})">📄 Imprimir</button>
-                              <button class="btn-whatsapp" style="margin-left: 4px;" onclick="enviarFacturaWhatsApp(${o.id})">📲 WhatsApp</button>`;
-                } else {
-                    accion += ` <button class="btn-whatsapp" style="margin-left: 4px;" onclick="enviarFacturaWhatsApp(${o.id})">📲 WhatsApp</button>`;
+                const terminada = ['Terminada', 'Listo para entrega'].includes(o.estado);
+                let accion = '';
+                if (terminada) {
+                    accion = `<button class="btn-small btn-action-success" onclick="abrirModalFactura(${o.id})">${o.mano_obra_confirmada ? 'Ver cobro' : 'Confirmar mano de obra'}</button>`;
                 }
-                tbody.innerHTML += `<tr><td>#${o.id}</td><td><strong>${o.moto_placa}</strong></td><td>${o.cliente_nombre}</td><td>${o.mecanico_nombre}</td><td><b>${o.estado}</b></td><td style="white-space: nowrap;">${accion}</td></tr>`;
+                if (o.estado === 'Facturada') {
+                    accion = `<button class="btn-small" onclick="imprimirFactura(${o.id})">Imprimir</button>`;
+                }
+                if (o.estado === 'Facturada' || (terminada && o.mano_obra_confirmada)) {
+                    accion += ` <button class="btn-whatsapp" onclick="enviarFacturaWhatsApp(${o.id})">WhatsApp</button>`;
+                }
+                accion += ` <button type="button" class="btn-small" onclick="verFotosOrden(${Number(o.id)})">Bitácora y evidencias</button>`;
+                const estado = terminada
+                    ? (o.mano_obra_confirmada ? 'Terminada · lista para cobrar' : 'Terminada · confirmar mano de obra')
+                    : o.estado;
+                tbody.innerHTML += `<tr><td>#${o.id}</td><td><strong>${escaparHTML(o.moto_placa)}</strong></td><td>${escaparHTML(o.cliente_nombre)}</td><td>${escaparHTML(o.mecanico_nombre)}</td><td><b>${escaparHTML(estado)}</b></td><td>${accion}</td></tr>`;
             });
         }
 
@@ -3598,17 +3533,23 @@ ${repuestosTexto}
             const resO = await fetch(`/api/ordenes?buscar=${ordenId}`);
             const ordenes = await resO.json();
             ordenSeleccionadaCache = ordenes.find(o => o.id == ordenId);
+            if (!ordenSeleccionadaCache || !['Terminada', 'Listo para entrega'].includes(ordenSeleccionadaCache.estado)) {
+                alert('La orden ya no está pendiente de cobro.');
+                return false;
+            }
             const resD = await fetch(`/api/ordenes/${ordenId}/detalles`);
             detallesCache = await resD.json();
 
-            let htmlDetalles = `<b>Moto:</b> ${ordenSeleccionadaCache.moto_placa} | <b>Cliente:</b> ${ordenSeleccionadaCache.cliente_nombre}<br><b>Trabajos:</b> ${ordenSeleccionadaCache.trabajo_realizado || 'N/A'}<hr><b>Repuestos:</b><br>`;
+            let htmlDetalles = `<b>Moto:</b> ${escaparHTML(ordenSeleccionadaCache.moto_placa)} | <b>Cliente:</b> ${escaparHTML(ordenSeleccionadaCache.cliente_nombre)}<br><b>Trabajos:</b> ${escaparHTML(ordenSeleccionadaCache.trabajo_realizado || 'N/A')}<hr><b>Repuestos:</b><br>`;
             if (detallesCache.length === 0) htmlDetalles += `- Ninguno<br>`;
-            else detallesCache.forEach(d => htmlDetalles += `- ${d.repuesto_nombre} (${d.cantidad}x) : $ ${(d.cantidad * d.precio_unitario).toLocaleString()}<br>`);
+            else detallesCache.forEach(d => htmlDetalles += `- ${escaparHTML(d.repuesto_nombre)} (${d.cantidad}x) : $ ${(d.cantidad * d.precio_unitario).toLocaleString()}<br>`);
             
             document.getElementById('facturaDetalleContenido').innerHTML = htmlDetalles;
             document.getElementById('facturaManoObra').value = ordenSeleccionadaCache.costo_mano_obra || 0;
+            document.getElementById('estadoPreparacionFactura').textContent = ordenSeleccionadaCache.mano_obra_confirmada ? 'Factura preparada para el cobro.' : '';
             calcularTotalModal();
             document.getElementById('facturaModal').style.display = 'flex';
+            return true;
         }
 
         function calcularTotalModal() {
@@ -3616,6 +3557,9 @@ ${repuestosTexto}
             detallesCache.forEach(d => totalRepuestos += (d.cantidad * d.precio_unitario));
             const manoObra = Number(document.getElementById('facturaManoObra').value || 0);
             document.getElementById('facturaTotalModal').textContent = `Total a Pagar: $ ${(totalRepuestos + manoObra).toLocaleString()}`;
+            const input = document.getElementById('facturaManoObra');
+            document.getElementById('cobrarFactura').disabled = !ordenSeleccionadaCache?.mano_obra_confirmada ||
+                !input.validity.valid || manoObra !== Number(ordenSeleccionadaCache.costo_mano_obra);
         }
 
         function cerrarModal() { document.getElementById('facturaModal').style.display = 'none'; }
@@ -3624,11 +3568,31 @@ ${repuestosTexto}
             e.preventDefault();
             const ordenId = document.getElementById('facturaOrdenId').value;
             const costo_mano_obra = document.getElementById('facturaManoObra').value;
-            const res = await fetch(`/api/ordenes/${ordenId}/facturar`, {
-                method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ costo_mano_obra, trabajo_realizado: ordenSeleccionadaCache.trabajo_realizado || 'Facturado en caja' })
-            });
-            if (res.ok) { cerrarModal(); cargarOrdenesFacturacion(); imprimirFactura(ordenId); }
+            const cobrar = e.submitter?.id === 'cobrarFactura';
+            const mensaje = document.getElementById('estadoPreparacionFactura');
+            const botones = [...e.currentTarget.querySelectorAll('button[type=submit]')];
+            botones.forEach(button => { button.disabled = true; });
+            try {
+                const res = await fetch(`/api/ordenes/${ordenId}/${cobrar ? 'facturar' : 'mano-obra'}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ costo_mano_obra })
+                });
+                if (!res.ok) throw new Error((await res.json()).mensaje || 'No se pudo actualizar el cobro.');
+                if (cobrar) {
+                    cerrarModal();
+                    imprimirFactura(ordenId);
+                } else {
+                    ordenSeleccionadaCache.mano_obra_confirmada = 1;
+                    ordenSeleccionadaCache.costo_mano_obra = Number(costo_mano_obra);
+                    mensaje.textContent = 'Factura preparada. El cobro se registra al entregar la moto.';
+                }
+                cargarOrdenesFacturacion();
+            } catch (error) {
+                mensaje.textContent = error.message;
+            } finally {
+                botones[0].disabled = false;
+                calcularTotalModal();
+            }
         });
 
         async function imprimirFactura(ordenId) {
@@ -3645,7 +3609,7 @@ ${repuestosTexto}
             detalles.forEach(d => {
                 const sub = d.cantidad * d.precio_unitario;
                 totalRepuestos += sub;
-                itemsHtml += `<tr><td>${d.repuesto_nombre} (${d.cantidad}x)</td><td style="text-align:right;">$ ${sub.toLocaleString()}</td></tr>`;
+                itemsHtml += `<tr><td>${escaparHTML(d.repuesto_nombre)} (${d.cantidad}x)</td><td style="text-align:right;">$ ${sub.toLocaleString()}</td></tr>`;
             });
             const manoObra = Number(orden.costo_mano_obra || 0);
             const totalGeneral = totalRepuestos + manoObra;
@@ -3655,14 +3619,14 @@ ${repuestosTexto}
 </head>
             <body style="font-family:sans-serif; font-size:11px; padding:10px;">
                 <div style="text-align:center;">
-                    <h3>${conf.nombre_taller || 'TALLER DE MOTOS'}</h3>
-                    <p>NIT: ${conf.nit_taller || '000000'} | Tel: ${conf.telefono_taller || 'N/A'}</p>
-                    <p style="font-size:9px; color:#555;">HIDEP-SOFT</p><hr>
+                    <h3>${escaparHTML(conf.nombre_taller || 'HIDEP-SOFT-SG - Taller de Motos')}</h3>
+                    <p>NIT: ${escaparHTML(conf.nit_taller || '000000')} | Tel: ${escaparHTML(conf.telefono_taller || 'N/A')}</p>
+                    <p style="font-size:9px; color:#555;">HIDEP-SOFT-SG</p><hr>
                     <b>FACTURA DE VENTA #${orden.id}</b>
                 </div>
-                <p><b>Cliente:</b> ${orden.cliente_nombre} (CC: ${orden.cliente_cedula})</p>
-                <p><b>Moto:</b> ${orden.moto_marca} - Placa: <b>${orden.moto_placa}</b></p>
-                <p><b>Trabajos:</b> ${orden.trabajo_realizado || 'N/A'}</p><hr>
+                <p><b>Cliente:</b> ${escaparHTML(orden.cliente_nombre)} (CC: ${escaparHTML(orden.cliente_cedula)})</p>
+                <p><b>Moto:</b> ${escaparHTML(orden.moto_marca)} - Placa: <b>${escaparHTML(orden.moto_placa)}</b></p>
+                <p><b>Trabajos:</b> ${escaparHTML(orden.trabajo_realizado || 'N/A')}</p><hr>
                 <table style="width:100%; border-collapse:collapse;">
                     <tr><td>Mano de Obra</td><td style="text-align:right;">$ ${manoObra.toLocaleString()}</td></tr>
                     ${itemsHtml}
@@ -3671,10 +3635,6 @@ ${repuestosTexto}
             </body></html>`);
             ventana.document.close();
             ventana.print();
-        }
-
-        async function cargarReportes() {
-            await cargarReporteDetallado();
         }
 
         async function cargarReporteDetallado() {
@@ -3724,15 +3684,16 @@ ${repuestosTexto}
                             <tr>
                                 <td><b>#${o.orden_id}</b></td>
                                 <td>${fecha}</td>
-                                <td><strong>${escaparHTML(o.cliente_nombre)}</strong><br><small style="color:var(--text-muted);">${o.cliente_telefono || ''}</small></td>
+                                <td><strong>${escaparHTML(o.cliente_nombre)}</strong><br><small style="color:var(--text-muted);">${escaparHTML(o.cliente_telefono || '')}</small></td>
                                 <td><span style="font-weight:800; color:var(--accent);">${escaparHTML(o.moto_placa)}</span><br><small>${escaparHTML(o.moto_marca || '')}</small></td>
                                 <td>${escaparHTML(o.mecanico_nombre || 'N/A')}</td>
                                 <td>$ ${Number(o.costo_mano_obra || 0).toLocaleString()}</td>
                                 <td>$ ${Number(o.total_repuestos_venta || 0).toLocaleString()}</td>
                                 <td style="color: #f59e0b;">$ ${Number(o.total_repuestos_costo || 0).toLocaleString()}</td>
                                 <td><span class="profit-badge profit-positive">$ ${Number(o.ganancia_neta || 0).toLocaleString()}</span></td>
-                                <td style="text-align: center; white-space: nowrap;">
-                                    <button class="btn-whatsapp" onclick="enviarFacturaWhatsApp(${o.orden_id})" title="Enviar resumen por WhatsApp">📲 WhatsApp</button>
+                                <td style="text-align: center;">
+                                    ${o.estado === 'Facturada' || (['Terminada', 'Listo para entrega'].includes(o.estado) && o.mano_obra_confirmada)
+                                        ? `<button class="btn-whatsapp" onclick="enviarFacturaWhatsApp(${o.orden_id})">WhatsApp</button>` : ''}
                                     <button class="btn-small" onclick="imprimirFactura(${o.orden_id})" style="margin-left:4px;" title="Ver factura">📄 Factura</button>
                                 </td>
                             </tr>
@@ -3752,7 +3713,7 @@ ${repuestosTexto}
                 }
             } catch (e) {
                 console.error('Error al cargar reporte detallado:', e);
-                if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="color:red; text-align:center;">Error al cargar reporte: ${e.message}</td></tr>`;
+                if (tbody) tbody.innerHTML = `<tr><td colspan="10" style="color:red; text-align:center;">Error al cargar reporte: ${escaparHTML(e.message)}</td></tr>`;
             }
         }
 
@@ -3772,9 +3733,9 @@ ${repuestosTexto}
                 <tr>
                     <td style="border: 1px solid #ddd; padding: 6px;">#${o.orden_id}</td>
                     <td style="border: 1px solid #ddd; padding: 6px;">${o.fecha_ingreso ? o.fecha_ingreso.substring(0, 10) : ''}</td>
-                    <td style="border: 1px solid #ddd; padding: 6px;">${o.cliente_nombre}</td>
-                    <td style="border: 1px solid #ddd; padding: 6px;">${o.moto_placa}</td>
-                    <td style="border: 1px solid #ddd; padding: 6px;">${o.mecanico_nombre || ''}</td>
+                    <td style="border: 1px solid #ddd; padding: 6px;">${escaparHTML(o.cliente_nombre)}</td>
+                    <td style="border: 1px solid #ddd; padding: 6px;">${escaparHTML(o.moto_placa)}</td>
+                    <td style="border: 1px solid #ddd; padding: 6px;">${escaparHTML(o.mecanico_nombre || '')}</td>
                     <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">$ ${Number(o.costo_mano_obra || 0).toLocaleString()}</td>
                     <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">$ ${Number(o.total_repuestos_venta || 0).toLocaleString()}</td>
                     <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">$ ${Number(o.total_repuestos_costo || 0).toLocaleString()}</td>
@@ -3786,12 +3747,12 @@ ${repuestosTexto}
             const conf = await resConf.json();
 
             ventana.document.write(`
-                <html><head><title>Reporte de Ganancias - HIDEP-SOFT</title>    <link rel="stylesheet" href="dashboard-refinements.css">
+                <html><head><title>Reporte de Ganancias - HIDEP-SOFT-SG</title>    <link rel="stylesheet" href="dashboard-refinements.css">
 </head>
                 <body style="font-family: Arial, sans-serif; font-size: 11px; padding: 20px;">
                     <div style="text-align: center; margin-bottom: 20px;">
-                        <h2 style="margin:0;">${conf.nombre_taller || 'TALLER DE MOTOS'}</h2>
-                        <p style="margin:2px 0;">${conf.eslogan_taller || 'Pasión y Precisión en Cada Kilómetro'}</p>
+                        <h2 style="margin:0;">${escaparHTML(conf.nombre_taller || 'HIDEP-SOFT-SG - Taller de Motos')}</h2>
+                        <p style="margin:2px 0;">${escaparHTML(conf.eslogan_taller || 'Pasión y Precisión en Cada Kilómetro')}</p>
                         <h3 style="margin:10px 0 0;">REPORTE DE GANANCIAS Y RENTABILIDAD</h3>
                         <p style="color:#666;">Generado el: ${new Date().toLocaleString('es-CO')}</p>
                     </div>
@@ -3873,15 +3834,35 @@ ${repuestosTexto}
         }
 
         // ===== MODAL DE FOTOS DE ÓRDENES =====
-        async function verFotosOrden(ordenId) {
-            document.getElementById('tituloModalFotos').textContent = `📷 Evidencias Fotográficas - Orden #${ordenId}`;
+        let consultaEvidencias = 0;
+        async function verFotosOrden(ordenId, refrescar = false) {
+            const consulta = refrescar ? consultaEvidencias : ++consultaEvidencias;
+            document.getElementById('tituloModalFotos').textContent = `Bitácora y evidencias · Orden #${ordenId}`;
             const contenedor = document.getElementById('galeriaFotosContainer');
+            const bitacora = document.getElementById('bitacoraOrden');
             contenedor.innerHTML = 'Cargando fotos...';
-            document.getElementById('modalVerFotosOrden').style.display = 'flex';
+            bitacora.textContent = 'Cargando bitácora…';
+            if (!refrescar) {
+                prepararSeguimiento(ordenId);
+            }
+            const modal = document.getElementById('modalVerFotosOrden');
+            modal.dataset.ordenId = ordenId;
+            modal.style.display = 'flex';
 
+            fetch(`/api/ordenes/${ordenId}/bitacora`).then(async response => {
+                if (!response.ok) throw new Error();
+                const entries = await response.json();
+                if (consulta !== consultaEvidencias) return;
+                bitacora.innerHTML = entries.map(entry => `<li><b>${escaparHTML(entry.tipo)}</b> · ${escaparHTML(entry.descripcion)}
+                    ${entry.fecha && !entry.tipo.endsWith('anterior') ? `<small>· ${escaparHTML(formatearFechaBitacora(entry.fecha))}</small>` : ''}</li>`).join('');
+            }).catch(() => {
+                if (consulta === consultaEvidencias) bitacora.textContent = 'No se pudo cargar la bitácora.';
+            });
             try {
                 const res = await fetch(`/api/ordenes/${ordenId}/fotos`);
+                if (!res.ok) throw new Error();
                 const fotos = await res.json();
+                if (consulta !== consultaEvidencias) return;
                 if (!fotos || fotos.length === 0) {
                     contenedor.innerHTML = '<div style="grid-column: 1/-1; text-align:center; color: var(--text-muted); padding: 25px;">No hay fotos registradas para esta orden todavía.</div>';
                     return;
@@ -3891,15 +3872,69 @@ ${repuestosTexto}
                     <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; background: var(--bg-card); text-align:center;">
                         <img src="${f.url}" alt="Foto" style="width: 100%; height: 130px; object-fit: cover; border-radius: 4px; cursor: pointer;" onclick="window.open('${f.url}', '_blank')">
                         <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">${escaparHTML(f.descripcion || 'Evidencia de trabajo')}</div>
-                        <div style="font-size: 9px; color: var(--text-muted);">${f.fecha ? f.fecha.substring(0, 16) : ''}</div>
+                        <div style="font-size: 9px; color: var(--text-muted);">${f.fecha ? escaparHTML(formatearFechaBitacora(f.fecha)) : ''}</div>
                     </div>
                 `).join('');
-            } catch (e) {
-                contenedor.innerHTML = `<div style="color: red; padding: 10px;">Error al consultar fotos: ${e.message}</div>`;
+            } catch {
+                if (consulta === consultaEvidencias) contenedor.textContent = 'No se pudieron consultar las fotos.';
             }
         }
 
+        function formatearFechaBitacora(value) {
+            return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('es-CO', { timeZone: 'America/Bogota' });
+        }
+
+        function prepararSeguimiento(ordenId) {
+            const panel = document.getElementById('controlesSeguimiento');
+            panel.hidden = !esPersonalAdministrativo();
+            const enlace = document.getElementById('enlaceSeguimiento');
+            const whatsapp = document.getElementById('whatsappSeguimiento');
+            const estado = document.getElementById('estadoSeguimiento');
+            enlace.hidden = whatsapp.hidden = true;
+            enlace.value = estado.textContent = '';
+            whatsapp.removeAttribute('href');
+            const endpoint = `/api/ordenes/${ordenId}/seguimiento`;
+            const generar = document.getElementById('generarSeguimiento');
+            const revocar = document.getElementById('revocarSeguimiento');
+            generar.disabled = revocar.disabled = false;
+            const consulta = consultaEvidencias;
+            const actualizar = async method => {
+                if (!confirm(method === 'POST'
+                    ? '¿Generar un enlace? El enlace anterior de esta orden dejará de funcionar.'
+                    : '¿Revocar el enlace de esta orden?')) return;
+                generar.disabled = revocar.disabled = true;
+                try {
+                    const response = await fetch(endpoint, { method });
+                    if (!response.ok) throw new Error();
+                    if (consulta !== consultaEvidencias) return;
+                    enlace.hidden = whatsapp.hidden = true;
+                    enlace.value = '';
+                    whatsapp.removeAttribute('href');
+                    if (method === 'DELETE') {
+                        estado.textContent = 'Enlace revocado.';
+                        return;
+                    }
+                    const data = await response.json();
+                    if (consulta !== consultaEvidencias) return;
+                    enlace.value = new URL(data.enlace, location.origin).href;
+                    enlace.hidden = false;
+                    estado.textContent = data.externo ? 'Enlace listo para compartir.' : 'Enlace local. Configura el dominio público para compartirlo fuera del taller.';
+                    if (data.externo) {
+                        whatsapp.href = 'https://wa.me/?text=' + encodeURIComponent(`Consulta el estado de tu motocicleta con la orden #${ordenId} o su placa: ${enlace.value}`);
+                        whatsapp.hidden = false;
+                    }
+                } catch {
+                    if (consulta === consultaEvidencias) estado.textContent = 'No se pudo actualizar el enlace.';
+                } finally {
+                    if (consulta === consultaEvidencias) generar.disabled = revocar.disabled = false;
+                }
+            };
+            generar.onclick = () => actualizar('POST');
+            revocar.onclick = () => actualizar('DELETE');
+        }
+
         function cerrarModalFotos() {
+            consultaEvidencias++;
             document.getElementById('modalVerFotosOrden').style.display = 'none';
         }
 
@@ -3937,7 +3972,6 @@ ${repuestosTexto}
             const res = await fetch('/api/config', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    nombre_taller: document.getElementById('confNombre').value,
                     nit_taller: document.getElementById('confNit').value,
                     eslogan_taller: document.getElementById('confEslogan')?.value,
                     telefono_taller: document.getElementById('confTelefono').value,
@@ -3955,7 +3989,6 @@ ${repuestosTexto}
         });
 
         const recoveryForm = document.getElementById('formRecuperacionCuenta');
-        document.getElementById('recoveryUsername').value = localStorage.getItem('taller_usuario') || '';
         recoveryForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const message = document.getElementById('msgRecoveryConfig');
@@ -4043,7 +4076,7 @@ ${repuestosTexto}
                 const data = await res.json();
                 msg.style.color = res.ok ? 'var(--success-color)' : 'var(--danger-color)';
                 msg.textContent = data.mensaje || 'No se pudo restaurar la copia.';
-                if (res.ok) alert('Restauración finalizada. Cierre y vuelva a abrir HIDEP-SOFT para cargar todos los datos.');
+                if (res.ok) window.location.replace('/');
             } catch (error) {
                 console.error('Error al restaurar la copia de seguridad:', error);
                 msg.style.color = 'var(--danger-color)';
@@ -4053,7 +4086,9 @@ ${repuestosTexto}
 
         async function cargarUsuariosSistema() {
             try {
+                if (!esAdministrador()) return;
                 const res = await fetch('/api/usuarios');
+                if (!res.ok) throw new Error('No se pudieron consultar los usuarios.');
                 const usuarios = await res.json();
                 const tbody = document.getElementById('tablaUsuariosBody');
                 if (!tbody) return;
@@ -4063,6 +4098,7 @@ ${repuestosTexto}
                     const btnResetPass = esAdmin 
                         ? `<button type="button" class="btn-small" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 700; margin-right: 6px;" onclick="abrirModalResetPassword(${u.id}, '${escaparHTML(u.nombre)}')">🔑 Cambiar Contraseña</button>` 
                         : '';
+                    const btnEditar = `<button type="button" class="btn-small" data-editar-usuario="${u.id}">Editar</button>`;
                     const btnEliminar = (u.username !== 'admin') 
                         ? `<button class="btn-small btn-action-danger" onclick="eliminarUsuario(${u.id})">Eliminar</button>` 
                         : '<em>Protegido</em>';
@@ -4072,12 +4108,53 @@ ${repuestosTexto}
                             <td><strong>${escaparHTML(u.nombre)}</strong></td>
                             <td>${escaparHTML(u.username)}</td>
                             <td><span class="badge ${u.rol === 'Administrador' ? 'badge-correctivo' : 'badge-preventivo'}">${escaparHTML(u.rol)}</span></td>
-                            <td>${btnResetPass}${btnEliminar}</td>
+                            <td>${btnEditar}${btnResetPass}${btnEliminar}</td>
                         </tr>
                     `;
                 });
+                tbody.querySelectorAll('[data-editar-usuario]').forEach(button => {
+                    button.onclick = () => abrirEdicionUsuario(usuarios.find(user => Number(user.id) === Number(button.dataset.editarUsuario)));
+                });
             } catch (error) { reportarErrorUI('carga de usuarios', error, 'No se pudo cargar la lista de usuarios.', 'msgUsuario'); }
         }
+
+        function abrirEdicionUsuario(usuario) {
+            if (!usuario || !esAdministrador()) return;
+            document.getElementById('editarUsuarioId').value = usuario.id;
+            document.getElementById('editarUsuarioNombre').value = usuario.nombre;
+            const login = document.getElementById('editarUsuarioLogin');
+            login.value = usuario.username;
+            login.readOnly = usuario.username === 'admin';
+            const role = document.getElementById('editarUsuarioRol');
+            role.value = usuario.rol;
+            role.disabled = login.readOnly;
+            document.getElementById('estadoEditarUsuario').textContent = '';
+            document.getElementById('modalEditarUsuario').showModal();
+        }
+
+        document.getElementById('formEditarUsuario').addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!esAdministrador()) return;
+            const button = event.submitter;
+            if (button) button.disabled = true;
+            try {
+                const id = document.getElementById('editarUsuarioId').value;
+                const response = await fetch(`/api/usuarios/${id}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        nombre: document.getElementById('editarUsuarioNombre').value,
+                        username: document.getElementById('editarUsuarioLogin').value,
+                        rol: document.getElementById('editarUsuarioRol').value
+                    })
+                });
+                if (!response.ok) throw new Error((await response.json()).mensaje);
+                document.getElementById('modalEditarUsuario').close();
+                cargarUsuariosSistema();
+                cargarDatosSelectOrdenes();
+            } catch (error) {
+                document.getElementById('estadoEditarUsuario').textContent = error.message;
+            } finally { if (button) button.disabled = false; }
+        });
 
         const formCrearUsuario = document.getElementById('formCrearUsuario');
         if (formCrearUsuario) {
@@ -4091,19 +4168,10 @@ ${repuestosTexto}
                 const pregunta_seguridad = document.getElementById('nuevoUserPregunta').value.trim();
                 const respuesta_seguridad = document.getElementById('nuevoUserRespuesta').value.trim();
                 const rol = document.getElementById('nuevoUserRol').value;
-                const permisos = {
-                    clientes: document.getElementById('permClientes').checked,
-                    ordenes: document.getElementById('permOrdenes').checked,
-                    facturacion: document.getElementById('permFacturacion').checked,
-                    inventario: document.getElementById('permInventario').checked,
-                    citas: document.getElementById('permCitas').checked,
-                    reportes: document.getElementById('permReportes').checked,
-                    config: document.getElementById('permConfig').checked
-                };
                 try {
                     const res = await fetch('/api/usuarios', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ nombre, username, password, rol, permisos, cedula, pregunta_seguridad, respuesta_seguridad })
+                        body: JSON.stringify({ nombre, username, password, rol, cedula, pregunta_seguridad, respuesta_seguridad })
                     });
                     const data = await res.json();
                     if (res.ok) {
@@ -4164,7 +4232,7 @@ ${repuestosTexto}
                     const data = await res.json();
                     if (res.ok && data.success) {
                         alert('✨ Sistema reseteado.');
-                        localStorage.clear(); window.location.href = '/';
+                        window.location.replace('/');
                     } else { alert('❌ Contraseña incorrecta.'); }
                 } catch (error) { reportarErrorUI('restablecimiento del sistema', error, 'No se pudo completar el restablecimiento.', 'msgLimpieza'); }
             });

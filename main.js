@@ -1,12 +1,19 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
+const { directorioDatosTaller } = require('./marca');
 const BACKEND_HOST = '127.0.0.1';
-const BACKEND_PORT = 3000;
-const BACKEND_ORIGIN = `http://${BACKEND_HOST}:${BACKEND_PORT}`;
+let backendPort;
 
 // Configurar variables de entorno antes de cargar módulos
-process.env.APP_IS_ELECTRON = 'true';
+if (process.env.WORKSHOP_DATA_DIR || app.isPackaged) {
+    const directorio = process.env.WORKSHOP_DATA_DIR
+        ? path.resolve(process.env.WORKSHOP_DATA_DIR, 'electron-profile')
+        : directorioDatosTaller(app.getPath('appData'));
+    fs.mkdirSync(directorio, { recursive: true });
+    app.setPath('userData', directorio);
+}
 process.env.APP_USER_DATA_PATH = app.getPath('userData');
 process.env.APP_IS_PACKAGED = app.isPackaged ? 'true' : 'false';
 
@@ -17,51 +24,7 @@ if (!gotTheLock) {
     app.quit();
 }
 
-// Iniciar el servidor backend Express
 let serverModule;
-try {
-    if (gotTheLock) serverModule = require('./server.js');
-    if (serverModule && typeof serverModule.startServer === 'function') {
-        serverModule.startServer().catch(error => {
-            console.error('[MAIN] No se pudo iniciar el servidor:', error.message);
-            app.quit();
-        });
-    }
-} catch (e) {
-    console.error('[MAIN] Error crítico al iniciar server.js:', e);
-}
-
-// Función auxiliar para verificar disponibilidad del servidor Express antes de abrir la UI
-function waitForServer(url, timeoutMs = 12000) {
-    const startTime = Date.now();
-    return new Promise((resolve) => {
-        const check = () => {
-            const req = http.get(url, (res) => {
-                if (res.statusCode >= 200 && res.statusCode < 400) {
-                    resolve(true);
-                } else {
-                    retry();
-                }
-            });
-            req.on('error', () => retry());
-            req.setTimeout(1000, () => {
-                req.destroy();
-                retry();
-            });
-        };
-
-        const retry = () => {
-            if (Date.now() - startTime > timeoutMs) {
-                console.warn('[MAIN] Tiempo de espera agotado para el servidor backend.');
-                resolve(false);
-            } else {
-                setTimeout(check, 150);
-            }
-        };
-
-        check();
-    });
-}
 
 let mainWindow;
 let closeFlowInProgress = false;
@@ -71,9 +34,10 @@ function requestBackup() {
     return new Promise((resolve, reject) => {
         const request = http.request({
             hostname: BACKEND_HOST,
-            port: BACKEND_PORT,
+            port: backendPort,
             path: '/api/backup-ejecutar',
-            method: 'POST'
+            method: 'POST',
+            headers: { 'X-Desktop-Backup': serverModule.desktopBackupKey }
         }, (response) => {
             let body = '';
             response.setEncoding('utf8');
@@ -84,7 +48,7 @@ function requestBackup() {
                 let result;
                 try {
                     result = JSON.parse(body);
-                } catch (error) {
+                } catch {
                     reject(new Error('El servidor devolvió una respuesta inválida al crear el respaldo.'));
                     return;
                 }
@@ -114,7 +78,7 @@ async function requestSafeExit(mode = 'close') {
             type: 'question',
             buttons: ['Hacer copia y salir', 'Salir sin copia', 'Cancelar'],
             defaultId: 0, cancelId: 2,
-            title: mode === 'logout' ? 'Cerrar sesi\u00f3n' : 'Cerrar HIDEP-SOFT',
+            title: mode === 'logout' ? 'Cerrar sesi\u00f3n' : 'Cerrar HIDEP-SOFT-SG',
             message: '\u00bfDesea realizar la copia de seguridad antes de salir?'
         });
         if (response === 2) return { cancelled: true };
@@ -159,25 +123,7 @@ async function createWindow() {
         void requestSafeExit();
     });
 
-    // Esperar sincronizadamente a que el servidor Express esté activo
-    const isReady = await waitForServer(`${BACKEND_ORIGIN}/api/health`, 12000);
-
-    if (isReady) {
-        mainWindow.loadURL(BACKEND_ORIGIN);
-    } else {
-        console.warn('[MAIN] Servidor no respondió a tiempo. Cargando archivo local...');
-        mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
-    }
-
-    // Mecanismo de recuperación ante fallos de carga transitorios
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-        console.warn(`[MAIN] Reintento de conexión (Código: ${errorCode}, ${errorDescription})...`);
-        setTimeout(() => {
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                mainWindow.loadURL(BACKEND_ORIGIN);
-            }
-        }, 1200);
-    });
+    await mainWindow.loadURL(`http://${BACKEND_HOST}:${backendPort}`);
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -192,16 +138,27 @@ app.on('second-instance', () => {
     }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     if (!gotTheLock) return;
-    createWindow().catch(error => console.error('[MAIN]', error.message));
-
-    app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            createWindow();
-        }
-    });
+    try {
+        serverModule = require('./server.js');
+        const listener = await serverModule.startServer();
+        backendPort = listener.address().port;
+        await createWindow();
+        app.on('activate', () => {
+            if (!BrowserWindow.getAllWindows().length) createWindow().catch(reportStartupError);
+        });
+    } catch (error) {
+        reportStartupError(error);
+    }
 });
+
+function reportStartupError(error) {
+    console.error('[MAIN] No se pudo iniciar HIDEP-SOFT-SG:', error.message);
+    dialog.showErrorBox('HIDEP-SOFT-SG', 'No se pudo iniciar la aplicación.\n' + error.message);
+    allowWindowClose = true;
+    app.exit(1);
+}
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

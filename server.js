@@ -4,103 +4,83 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { promisify } = require('util');
+const { NOMBRE_TALLER, directorioDatosTaller } = require('./marca');
 const scrypt = promisify(crypto.scrypt);
 
 const app = express();
 const sessions = new Map();
+const desktopBackupKey = crypto.randomBytes(32).toString('hex');
 const PORT = process.env.PORT || 3000;
-
-// Middleware CORS nativo para habilitar sincronización desde tablets, celulares y red local
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Directorio para evidencia fotográfica de órdenes
-const uploadsDir = process.env.APP_IS_PACKAGED === 'true'
-    ? path.join(process.env.APP_USER_DATA_PATH || path.dirname(resolveDbPath()), 'uploads', 'ordenes')
-    : path.join(__dirname, 'public', 'uploads', 'ordenes');
-app.use('/uploads/ordenes', express.static(uploadsDir));
-if (!fs.existsSync(uploadsDir)) {
-    try {
-        fs.mkdirSync(uploadsDir, { recursive: true });
-    } catch (e) {
-        console.error('[UPLOADS] Error creando directorio para fotos:', e.message);
-    }
-}
-
-// ================= GESTIÓN DE RUTA DE BASE DE DATOS =================
-function resolveDbPath() {
-    // Si estamos en entorno empaquetado de Electron (producción en Windows)
-    const isPackaged = process.env.APP_IS_PACKAGED === 'true' || 
-                       (process.mainModule && process.mainModule.filename && process.mainModule.filename.includes('app.asar')) ||
-                       __dirname.includes('app.asar');
-
-    let dbDir = __dirname;
-    if (isPackaged) {
-        dbDir = process.env.APP_USER_DATA_PATH || 
-                (process.env.APPDATA ? path.join(process.env.APPDATA, 'HIDEP-SOFT') : path.join(process.env.USERPROFILE || 'C:\\', 'AppData', 'Roaming', 'HIDEP-SOFT'));
-    }
-
-    if (!fs.existsSync(dbDir)) {
-        try {
-            fs.mkdirSync(dbDir, { recursive: true });
-        } catch (e) {
-            console.error('[DB] Error al crear directorio para base de datos:', e.message);
-        }
-    }
-
-    const targetDb = path.join(dbDir, 'database.db');
-
-    // Si la base de datos de producción aún no existe en AppData, copiar la plantilla base con datos
-    if (!fs.existsSync(targetDb)) {
-        const candidateTemplates = [
-            process.resourcesPath ? path.join(process.resourcesPath, 'database.db') : null,
-            path.join(__dirname, 'database.db'),
-            path.join(process.cwd(), 'database.db')
-        ].filter(Boolean);
-
-        let copied = false;
-        for (const tpl of candidateTemplates) {
-            if (fs.existsSync(tpl)) {
-                try {
-                    fs.copyFileSync(tpl, targetDb);
-                    copied = true;
-                    break;
-                } catch (e) {
-                    console.error(`[DB] Error al copiar plantilla desde ${tpl}:`, e.message);
-                }
-            }
-        }
-        if (!copied) {
-        }
-    }
-
-    return targetDb;
-}
-
-const dbFile = resolveDbPath();
-
-let db = new sqlite3.Database(dbFile, (err) => {
-    if (err) {
-        console.error('[DB] Error crítico al abrir la base de datos SQLite:', err.message);
-    } else {
-        inicializarTablas();
-    }
+const publicDir = path.join(__dirname, 'public');
+const publicFiles = new Set(fs.readdirSync(publicDir, { withFileTypes: true })
+    .filter(entry => entry.isFile() && !['seguimiento.html', 'seguimiento.js'].includes(entry.name))
+    .map(entry => '/' + entry.name));
+const servePublic = express.static(publicDir);
+app.use((req, res, next) => {
+    if (req.path === '/' || publicFiles.has(req.path)) return servePublic(req, res, next);
+    next();
 });
 
-function inicializarTablas() {
-    db.serialize(() => {
-        db.run(`CREATE TABLE IF NOT EXISTS clientes (
+const configuredDataDir = process.env.WORKSHOP_DATA_DIR;
+const isPackaged = process.env.APP_IS_PACKAGED === 'true' || __dirname.includes('app.asar');
+const dbFile = resolveDbPath();
+const uploadsDir = path.join((configuredDataDir || isPackaged) ? path.dirname(dbFile) : publicDir, 'uploads', 'ordenes');
+
+function resolveDbPath() {
+    const appData = process.env.APPDATA || path.join(process.env.USERPROFILE || 'C:\\', 'AppData', 'Roaming');
+    const directory = configuredDataDir ? path.resolve(configuredDataDir) :
+        isPackaged ? process.env.APP_USER_DATA_PATH || directorioDatosTaller(appData) : __dirname;
+    fs.mkdirSync(directory, { recursive: true });
+    const target = path.join(directory, 'database.db');
+    if (isPackaged && !configuredDataDir && !fs.existsSync(target)) {
+        const templates = [process.resourcesPath, __dirname, process.cwd()].filter(Boolean);
+        const template = templates.map(dir => path.join(dir, 'database.db')).find(file => fs.existsSync(file));
+        if (template) fs.copyFileSync(template, target);
+    }
+    return target;
+}
+
+let db;
+let databaseReady;
+let restoring = false;
+
+const openDatabase = filename => new Promise((resolve, reject) => {
+    const connection = new sqlite3.Database(filename, (error) => error ? reject(error) : resolve(connection));
+    connection.configure('busyTimeout', 10000);
+});
+const closeConnection = connection => new Promise((resolve, reject) =>
+    connection.close(error => error ? reject(error) : resolve()));
+const queryAll = (connection, sql, params = []) => new Promise((resolve, reject) =>
+    connection.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows)));
+
+function ensureDatabase() {
+    return databaseReady ||= (async () => {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+        db = await openDatabase(dbFile);
+        await inicializarTablas(db);
+        await refreshBackupInterval();
+    })();
+}
+
+async function refreshBackupInterval() {
+    const row = await getRow('SELECT backup_interval_min FROM configuracion WHERE id = 1', []);
+    configurarAutoBackup(row?.backup_interval_min);
+}
+
+async function inicializarTablas(connection) {
+    const tables = await queryAll(connection, "SELECT name FROM sqlite_master WHERE name IN ('ordenes', 'ordenes_servicio')");
+    if (tables.length === 1 && tables[0].name === 'ordenes_servicio') {
+        await runOrderQuery('ALTER TABLE ordenes_servicio RENAME TO ordenes', [], connection);
+    }
+    const statements = [];
+    const schema = sql => statements.push(runOrderQuery(sql, [], connection).catch(error => {
+        if (!sql.startsWith('ALTER TABLE') || !/duplicate column name/i.test(error.message)) throw error;
+    }));
+    connection.serialize(() => {
+        schema(`CREATE TABLE IF NOT EXISTS clientes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cedula TEXT UNIQUE,
             nombre TEXT,
@@ -108,7 +88,7 @@ function inicializarTablas() {
             direccion TEXT
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS motos (
+        schema(`CREATE TABLE IF NOT EXISTS motos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cliente_id INTEGER,
             placa TEXT UNIQUE,
@@ -120,7 +100,7 @@ function inicializarTablas() {
             FOREIGN KEY(cliente_id) REFERENCES clientes(id)
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS usuarios (
+        schema(`CREATE TABLE IF NOT EXISTS usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT,
             username TEXT UNIQUE,
@@ -128,12 +108,12 @@ function inicializarTablas() {
             rol TEXT,
             permisos TEXT
         )`);
-        db.run('ALTER TABLE usuarios ADD COLUMN cedula TEXT', () => {});
-        db.run('ALTER TABLE usuarios ADD COLUMN pregunta_seguridad TEXT', () => {});
-        db.run('ALTER TABLE usuarios ADD COLUMN respuesta_hash TEXT', () => {});
-        db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_cedula_unique ON usuarios(cedula) WHERE cedula IS NOT NULL AND cedula <> ''");
+        schema('ALTER TABLE usuarios ADD COLUMN cedula TEXT');
+        schema('ALTER TABLE usuarios ADD COLUMN pregunta_seguridad TEXT');
+        schema('ALTER TABLE usuarios ADD COLUMN respuesta_hash TEXT');
+        schema("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_cedula_unique ON usuarios(cedula) WHERE cedula IS NOT NULL AND cedula <> ''");
 
-        db.run(`CREATE TABLE IF NOT EXISTS inventario (
+        schema(`CREATE TABLE IF NOT EXISTS inventario (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             codigo TEXT UNIQUE,
             nombre TEXT,
@@ -142,7 +122,7 @@ function inicializarTablas() {
             precio_venta REAL
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS ordenes (
+        schema(`CREATE TABLE IF NOT EXISTS ordenes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             moto_id INTEGER,
             mecanico_id INTEGER,
@@ -156,7 +136,7 @@ function inicializarTablas() {
             FOREIGN KEY(mecanico_id) REFERENCES usuarios(id)
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS detalle_orden_repuestos (
+        schema(`CREATE TABLE IF NOT EXISTS detalle_orden_repuestos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             orden_id INTEGER,
             repuesto_id INTEGER,
@@ -165,8 +145,9 @@ function inicializarTablas() {
             FOREIGN KEY(orden_id) REFERENCES ordenes(id),
             FOREIGN KEY(repuesto_id) REFERENCES inventario(id)
         )`);
+        schema('ALTER TABLE ordenes ADD COLUMN mano_obra_confirmada INTEGER NOT NULL DEFAULT 0');
 
-        db.run(`CREATE TABLE IF NOT EXISTS solicitudes_repuestos_orden (
+        schema(`CREATE TABLE IF NOT EXISTS solicitudes_repuestos_orden (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             orden_id INTEGER NOT NULL,
             repuesto_id INTEGER NOT NULL,
@@ -178,7 +159,7 @@ function inicializarTablas() {
             FOREIGN KEY(repuesto_id) REFERENCES inventario(id)
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS citas (
+        schema(`CREATE TABLE IF NOT EXISTS citas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             cliente_nombre TEXT,
             moto_placa TEXT,
@@ -188,7 +169,7 @@ function inicializarTablas() {
             estado TEXT DEFAULT 'Pendiente'
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS orden_fotos (
+        schema(`CREATE TABLE IF NOT EXISTS orden_fotos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             orden_id INTEGER NOT NULL,
             url TEXT NOT NULL,
@@ -196,8 +177,60 @@ function inicializarTablas() {
             fecha DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(orden_id) REFERENCES ordenes(id)
         )`);
+        schema('ALTER TABLE orden_fotos ADD COLUMN publicada INTEGER NOT NULL DEFAULT 0');
+        schema(`CREATE TABLE IF NOT EXISTS orden_bitacora (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            orden_id INTEGER NOT NULL REFERENCES ordenes(id),
+            tipo TEXT NOT NULL,
+            descripcion TEXT NOT NULL,
+            fecha TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%f', 'now'))
+        )`);
+        schema('CREATE INDEX IF NOT EXISTS idx_orden_bitacora ON orden_bitacora(orden_id, fecha, id)');
+        schema(`CREATE TABLE IF NOT EXISTS orden_seguimiento (
+            orden_id INTEGER PRIMARY KEY REFERENCES ordenes(id),
+            token_hash TEXT NOT NULL UNIQUE
+        )`);
+        schema(`CREATE TABLE IF NOT EXISTS orden_seguimiento_envios (
+            token_hash TEXT PRIMARY KEY,
+            orden_id INTEGER NOT NULL REFERENCES orden_seguimiento(orden_id),
+            version TEXT NOT NULL
+        )`);
+        schema('CREATE INDEX IF NOT EXISTS idx_seguimiento_envios_orden ON orden_seguimiento_envios(orden_id)');
+        schema(`CREATE TRIGGER IF NOT EXISTS limpiar_envios_rotados AFTER UPDATE OF token_hash ON orden_seguimiento BEGIN
+            DELETE FROM orden_seguimiento_envios WHERE orden_id = OLD.orden_id;
+        END`);
+        schema(`CREATE TRIGGER IF NOT EXISTS limpiar_envios_revocados AFTER DELETE ON orden_seguimiento BEGIN
+            DELETE FROM orden_seguimiento_envios WHERE orden_id = OLD.orden_id;
+        END`);
+        schema(`INSERT INTO orden_bitacora (orden_id, tipo, descripcion, fecha)
+            SELECT id, 'Resumen anterior', trabajo_realizado, fecha_ingreso FROM ordenes
+            WHERE trim(coalesce(trabajo_realizado, '')) NOT IN ('', 'En proceso', 'Ingreso desde cita')
+              AND fecha_ingreso IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM orden_bitacora b WHERE b.orden_id = ordenes.id
+                  AND b.tipo IN ('Resumen anterior', 'Avance'))`);
+        schema(`INSERT INTO orden_bitacora (orden_id, tipo, descripcion, fecha)
+            SELECT o.id, 'Repuesto anterior', i.nombre || ' × ' || d.cantidad, o.fecha_ingreso
+            FROM detalle_orden_repuestos d JOIN ordenes o ON o.id = d.orden_id
+            JOIN inventario i ON i.id = d.repuesto_id
+            WHERE o.fecha_ingreso IS NOT NULL AND NOT EXISTS (
+                SELECT 1 FROM orden_bitacora b WHERE b.orden_id = o.id AND b.tipo IN ('Repuesto anterior', 'Repuesto'))
+            ORDER BY d.id`);
+        schema(`CREATE TRIGGER IF NOT EXISTS orden_bitacora_estado AFTER UPDATE OF estado ON ordenes
+            WHEN NEW.estado <> OLD.estado BEGIN
+                INSERT INTO orden_bitacora (orden_id, tipo, descripcion) VALUES (NEW.id, 'Estado', NEW.estado);
+            END`);
+        schema(`CREATE TRIGGER IF NOT EXISTS orden_bitacora_repuesto AFTER INSERT ON detalle_orden_repuestos BEGIN
+            INSERT INTO orden_bitacora (orden_id, tipo, descripcion)
+            SELECT NEW.orden_id, 'Repuesto', nombre || ' × ' || NEW.cantidad FROM inventario WHERE id = NEW.repuesto_id;
+            END`);
+        schema(`CREATE TRIGGER IF NOT EXISTS orden_bitacora_avance AFTER INSERT ON orden_bitacora
+            WHEN NEW.tipo = 'Avance' BEGIN
+                UPDATE ordenes SET trabajo_realizado = CASE
+                    WHEN trim(coalesce(trabajo_realizado, '')) IN ('', 'En proceso', 'Ingreso desde cita') THEN NEW.descripcion
+                    ELSE trabajo_realizado || ' | ' || NEW.descripcion END WHERE id = NEW.orden_id;
+            END`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS alertas_stock (
+        schema(`CREATE TABLE IF NOT EXISTS alertas_stock (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             orden_id INTEGER,
             repuesto_id INTEGER,
@@ -209,7 +242,7 @@ function inicializarTablas() {
             leida INTEGER DEFAULT 0
         )`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS configuracion (
+        schema(`CREATE TABLE IF NOT EXISTS configuracion (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre_taller TEXT,
             nit_taller TEXT,
@@ -225,53 +258,32 @@ function inicializarTablas() {
             tarifa_mas REAL,
             backup_interval_min INTEGER DEFAULT 60,
             eslogan_taller TEXT DEFAULT 'Pasión y Precisión en Cada Kilómetro'
-        )`, () => {
-            db.run('ALTER TABLE configuracion ADD COLUMN backup_interval_min INTEGER DEFAULT 60', () => {});
-            db.run("ALTER TABLE configuracion ADD COLUMN eslogan_taller TEXT DEFAULT 'Pasión y Precisión en Cada Kilómetro'", () => {});
-            db.get(`SELECT COUNT(*) as count FROM configuracion`, (err, row) => {
-                if (row && row.count === 0) {
-                    db.run(`INSERT INTO configuracion (nombre_taller, nit_taller, tema, tarifa_100, tarifa_200, tarifa_400, tarifa_mas, backup_interval_min, eslogan_taller) 
-                            VALUES ('SG-TALLER DE MOTOS', '900123456-1', 'dark', 30000, 50000, 80000, 120000, 60, 'Pasión y Precisión en Cada Kilómetro')`);
-                }
-            });
-            // Iniciar temporizador de auto-guardado
-            db.get(`SELECT backup_interval_min FROM configuracion WHERE id = 1`, (err, row) => {
-                if (row && row.backup_interval_min) {
-                    configurarAutoBackup(row.backup_interval_min);
-                }
-            });
-        });
-
-        // Asegurar que exista usuario administrador
-        db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, async (err, row) => {
-            if (!row) {
-                const hash = await hashPassword('1234');
-                db.run(`INSERT INTO usuarios (nombre, username, password, rol, permisos) VALUES (?, 'admin', ?, 'Administrador', '{"clientes":true,"ordenes":true,"facturacion":true,"inventario":true,"citas":true,"reportes":true,"config":true}')`, ['Administrador General', hash]);
-            }
-        });
-        db.all('SELECT id, password FROM usuarios', async (err, users) => {
-            if (err) {
-                console.error('[AUTH] No se pudieron consultar usuarios para migrar contraseñas:', err.message);
-                return;
-            }
-            const usersToMigrate = (users || []).filter((user) => user.password && !user.password.startsWith('scrypt$'));
-            try {
-                const passwordUpdates = await Promise.all(usersToMigrate.map(async (user) => ({
-                    id: user.id,
-                    hash: await hashPassword(user.password)
-                })));
-                passwordUpdates.forEach(({ id, hash }) => {
-                    db.run('UPDATE usuarios SET password = ? WHERE id = ?', [hash, id], (updateError) => {
-                        if (updateError) {
-                            console.error(`[AUTH] No se pudo migrar la contraseña del usuario ${id}:`, updateError.message);
-                        }
-                    });
-                });
-            } catch (migrationError) {
-                console.error('[AUTH] Falló la migración de contraseñas heredadas:', migrationError.message);
-            }
-        });
+        )`);
+        schema('ALTER TABLE configuracion ADD COLUMN backup_interval_min INTEGER DEFAULT 60');
+        schema("ALTER TABLE configuracion ADD COLUMN eslogan_taller TEXT DEFAULT 'Pasión y Precisión en Cada Kilómetro'");
     });
+    await Promise.allSettled(statements).then(results => {
+        const failure = results.find(result => result.status === 'rejected');
+        if (failure) throw failure.reason;
+    });
+
+    const run = (sql, params) => runOrderQuery(sql, params, connection);
+    await run(`INSERT OR IGNORE INTO configuracion (id, nombre_taller, nit_taller, tema, tarifa_100, tarifa_200,
+        tarifa_400, tarifa_mas, backup_interval_min, eslogan_taller)
+        VALUES (1, ?, '900123456-1', 'dark', 30000, 50000, 80000, 120000, 60, 'Pasión y Precisión en Cada Kilómetro')`, [NOMBRE_TALLER]);
+    await run('UPDATE configuracion SET nombre_taller = ? WHERE nombre_taller IS NOT ?', [NOMBRE_TALLER, NOMBRE_TALLER]);
+
+    const users = await queryAll(connection, 'SELECT id, username, password FROM usuarios');
+    if (!users.some(user => user.username === 'admin')) {
+        const hash = await hashPassword('1234');
+        await run(`INSERT INTO usuarios (nombre, username, password, rol, permisos) VALUES (?, 'admin', ?, 'Administrador', ?)`,
+            ['Administrador General', hash, JSON.stringify(rolePermissions.Administrador)]);
+    }
+    const legacyUsers = users.filter(user => user.password && !user.password.startsWith('scrypt$'));
+    for (const user of legacyUsers) {
+        await run('UPDATE usuarios SET password = ? WHERE id = ? AND password = ?',
+            [await hashPassword(user.password), user.id, user.password]);
+    }
 }
 
 async function hashPassword(value) {
@@ -293,9 +305,29 @@ function normalizeIdentity(value) {
     return String(value || '').trim().normalize('NFKD').replaceAll(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
 }
 
-function createDatabaseSnapshot(destinationPath) {
+const roleNames = new Map([
+    ['administrador', 'Administrador'], ['administrator', 'Administrador'],
+    ['recepcionista', 'Recepcionista'], ['recepcion', 'Recepcionista'], ['receptionist', 'Recepcionista'],
+    ['mecanico', 'Mecanico'], ['mechanic', 'Mecanico']
+]);
+const canonicalRole = value => roleNames.get(normalizeIdentity(value));
+const isAdmin = user => user?.rol === 'Administrador';
+const rolePermissions = {
+    Administrador: { clientes: true, ordenes: true, facturacion: true, inventario: true, citas: true, reportes: true, config: true },
+    Recepcionista: { clientes: true, ordenes: true, citas: true },
+    Mecanico: { ordenes: true }
+};
+
+function invalidateUserSessions(id) {
+    for (const [token, user] of sessions) if (user.id === id) sessions.delete(token);
+    for (const client of sseClients) {
+        if (client.syncUser?.id === id) client.end('event: sesion_revocada\ndata: {}\n\n');
+    }
+}
+
+function createDatabaseSnapshot(destinationPath, source = db) {
     return new Promise((resolve, reject) => {
-        const backup = db.backup(destinationPath);
+        const backup = source.backup(destinationPath);
         backup.step(-1, (stepError) => {
             backup.finish((finishError) => {
                 const error = stepError || finishError;
@@ -319,7 +351,7 @@ function configurarAutoBackup(minutos) {
     }
     const ms = mins * 60 * 1000;
     backupIntervalTimer = setInterval(() => {
-        db.get(`SELECT backup_path FROM configuracion WHERE id = 1`, (err, row) => {
+        db.get(`SELECT backup_path FROM configuracion WHERE id = 1`, (_err, row) => {
             if (row && row.backup_path && fs.existsSync(row.backup_path)) {
                 try {
                     const autoFile = path.join(row.backup_path, `autobackup_${Date.now()}.db`);
@@ -339,9 +371,16 @@ const sseClients = new Set();
 
 function broadcastSyncEvent(tipo, data = {}) {
     const payload = JSON.stringify({ tipo, data, timestamp: Date.now() });
+    const adminsOnly = tipo === 'backup_realizado' || (tipo === 'orden_actualizada' && data.accion === 'mano_obra_actualizada');
     for (const client of sseClients) {
         try {
-            if (normalizeIdentity(client.syncUser?.rol) === 'mecanico') {
+            if (client.syncUser.expires < Date.now()) {
+                client.end();
+                continue;
+            }
+            if (adminsOnly && !isAdmin(client.syncUser)) continue;
+            if (tipo === 'orden_terminada' && !isWorkshopDesk(client.syncUser)) continue;
+            if (client.syncUser.rol === 'Mecanico' && tipo !== 'asignacion_actualizada') {
                 const orderId = data.ordenId || data.orden_id;
                 if (orderId) db.get('SELECT mecanico_id FROM ordenes WHERE id = ?', [orderId], (err, order) => {
                     if (!err && order?.mecanico_id === client.syncUser.id && !client.destroyed) client.write(`event: sync\ndata: ${payload}\n\n`);
@@ -349,13 +388,17 @@ function broadcastSyncEvent(tipo, data = {}) {
                 continue;
             }
             client.write(`event: sync\ndata: ${payload}\n\n`);
-        } catch (e) {
+        } catch {
             sseClients.delete(client);
         }
     }
 }
 
 // ================= API RUTAS =================
+app.use('/api', (_req, res, next) => {
+    if (restoring) return res.status(503).json({ mensaje: 'Restauración en curso. Intente nuevamente.' });
+    next();
+});
 
 // Canal SSE para sincronización instantánea entre PC, tablets y móviles
 app.get('/api/sync-events', (req, res) => {
@@ -367,18 +410,20 @@ app.get('/api/sync-events', (req, res) => {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
+        'X-Accel-Buffering': 'no'
     });
     res.write('event: connected\ndata: {"status":"connected"}\n\n');
     sseClients.add(res);
 
-    req.on('close', () => {
+    const heartbeat = setInterval(() => res.write(': sincronización\n\n'), 25000);
+    res.on('close', () => {
+        clearInterval(heartbeat);
         sseClients.delete(res);
     });
 });
 
 // Endpoint de verificación de salud del servidor
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
     db.get('SELECT 1 AS ready FROM usuarios LIMIT 1', (error) => {
         if (error) return res.status(503).json({ status: 'starting' });
         res.json({ status: 'ok', uptime: process.uptime(), time: Date.now() });
@@ -387,46 +432,20 @@ app.get('/api/health', (req, res) => {
 
 // Autenticación de usuarios
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) {
-        return res.status(400).json({ success: false, mensaje: 'Usuario y contraseña requeridos.' });
+    const { username, password } = req.body || {};
+    if (!username || !password) return res.status(400).json({ mensaje: 'Usuario y contraseña requeridos.' });
+    const user = await getRow('SELECT id, password FROM usuarios WHERE username = ?', [username]);
+    if (!user || !await verifyPassword(password, user.password)) {
+        return res.status(401).json({ mensaje: 'Usuario o contraseña incorrectos.' });
     }
+    const current = await getRow('SELECT id, nombre, rol, password FROM usuarios WHERE id = ? AND username = ?', [user.id, username]);
+    const rol = canonicalRole(current?.rol);
+    if (!rol || current.password !== user.password) return res.status(401).json({ mensaje: 'Inicie sesión nuevamente.' });
 
-    db.get(`SELECT * FROM usuarios WHERE username = ?`, [username], async (err, user) => {
-        if (err) {
-            console.error('[AUTH] Error interno:', err.message);
-            return res.status(500).json({ success: false, mensaje: 'Error interno en el servidor.' });
-        }
-        if (!user) {
-            return res.status(401).json({ success: false, mensaje: 'Usuario o contraseña incorrectos.' });
-        }
-
-        // Validación de contraseña flexible para administrador (soporta 1234 y 123)
-        const isPasswordMatch = await verifyPassword(password, user.password);
-
-        if (!isPasswordMatch) {
-            return res.status(401).json({ success: false, mensaje: 'Usuario o contraseña incorrectos.' });
-        }
-
-        let permisosObj = {};
-        try {
-            permisosObj = JSON.parse(user.permisos || '{}');
-        } catch (error) {
-            // Keep authentication available if legacy permission data is malformed.
-            console.warn('[AUTH] Permisos inválidos; se aplicará un objeto vacío:', error.message);
-        }
-
-        const token = crypto.randomBytes(32).toString('hex');
-        sessions.set(token, { id: user.id, nombre: user.nombre, rol: user.rol, expires: Date.now() + 86400000 });
-        res.setHeader('Set-Cookie', `hidep_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`);
-        res.json({
-            success: true,
-            id: user.id,
-            nombre: user.nombre,
-            rol: user.rol,
-            permisos: permisosObj
-        });
-    });
+    const token = crypto.randomBytes(32).toString('hex');
+    sessions.set(token, { id: current.id, nombre: current.nombre, username, rol, expires: Date.now() + 86400000 });
+    res.setHeader('Set-Cookie', `hidep_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`);
+    res.json({ success: true, id: current.id, nombre: current.nombre, rol, permisos: rolePermissions[rol] });
 });
 
 // Recuperación / Restablecimiento de contraseña
@@ -457,35 +476,46 @@ app.post('/api/seguridad/recuperacion-configurar', async (req, res) => {
     });
 });
 
-app.post('/api/recuperar-password', (req, res) => {
+app.post('/api/recuperar-password', (_req, res) => {
     res.status(403).json({ success: false, mensaje: 'Solicite al administrador el restablecimiento de su contraseña.' });
 });
+
+const receptionRoutes = {
+    GET: /^\/(?:clientes|motos(?:\/\d+\/historial)?|mecanicos|ordenes(?:\/\d+\/(?:detalles|bitacora|fotos(?:\/\d+)?))?|citas|config|alertas-stock)$/,
+    POST: /^\/(?:clientes|motos|ordenes(?:\/\d+\/(?:seguimiento|whatsapp))?|citas(?:\/\d+\/convertir)?)$/,
+    PUT: /^\/(?:ordenes\/\d+\/(?:estado|asignacion)|alertas-stock\/(?:\d+\/leer|leer-todas))$/,
+    DELETE: /^\/ordenes\/\d+\/seguimiento$/
+};
+const mechanicRoutes = {
+    GET: /^(?:detalles|bitacora|fotos(?:\/\d+)?|solicitudes-repuestos)$/,
+    POST: /^(?:repuestos|solicitudes-repuestos|fotos)$/,
+    PUT: /^(?:reportar|estado)$/
+};
 
 app.use('/api', (req, res, next) => {
     const token = (req.headers.cookie || '').split(';').map(v => v.trim()).find(v => v.startsWith('hidep_session='))?.slice(14);
     const user = sessions.get(token);
     // Electron usa exclusivamente loopback para ejecutar el respaldo del botón seguro.
-    if (req.path === '/backup-ejecutar' && ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) return next();
+    if (req.method === 'POST' && req.path === '/backup-ejecutar' && req.get('X-Desktop-Backup') === desktopBackupKey &&
+        ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) return next();
     if (!user || user.expires < Date.now()) return res.status(401).json({ mensaje: 'Inicie sesión nuevamente.' });
     req.user = user;
-    const admin = user.rol === 'Administrador';
-    const mechanic = normalizeIdentity(user.rol) === 'mecanico';
-    if ((req.path.startsWith('/usuarios') && req.method !== 'GET') || req.path === '/reset-sistema' || req.path === '/restore') {
-        if (!admin) return res.status(403).json({ mensaje: 'Solo el administrador puede realizar esta acción.' });
-    }
-    if (req.method === 'POST' && ['/logout', '/backup-ejecutar'].includes(req.path)) return next();
-    if (mechanic) {
-        const match = req.path.match(/^\/ordenes\/(\d+)(?:\/|$)/);
-        if (match) return db.get('SELECT mecanico_id FROM ordenes WHERE id = ?', [match[1]], (err, order) => {
+    res.set('Cache-Control', 'no-store');
+    const method = req.method === 'HEAD' ? 'GET' : req.method;
+    if (isAdmin(user) || (method === 'GET' && req.path === '/session') || (method === 'POST' && req.path === '/logout')) return next();
+    if (user.rol === 'Recepcionista' && receptionRoutes[method]?.test(req.path)) return next();
+    if (user.rol === 'Mecanico') {
+        if (method === 'GET' && ['/ordenes', '/inventario'].includes(req.path)) return next();
+        const match = req.path.match(/^\/ordenes\/(\d+)\/(.+)$/);
+        if (!match || !mechanicRoutes[method]?.test(match[2])) return res.sendStatus(403);
+        return db.get('SELECT mecanico_id FROM ordenes WHERE id = ?', [match[1]], (err, order) => {
             if (err) return res.status(500).json({ mensaje: 'No se pudo validar la orden.' });
             if (!order || order.mecanico_id !== user.id) return res.status(403).json({ mensaje: 'Orden no asignada a su usuario.' });
-            if (!['GET'].includes(req.method) && !/\/(repuestos|solicitudes-repuestos|reportar|fotos|estado)(?:\/|$)/.test(req.path)) return res.sendStatus(403);
-            if (req.path.endsWith('/estado') && !['En proceso', 'Listo para entrega'].includes(req.body.estado)) return res.sendStatus(403);
+            if (match[2] === 'estado' && !['Terminada', 'Listo para entrega'].includes(req.body?.estado)) return res.sendStatus(403);
             next();
         });
-        if (!(req.method === 'GET' && ['/ordenes', '/inventario', '/usuarios', '/session', '/config'].includes(req.path))) return res.status(403).json({ mensaje: 'Acceso no permitido.' });
     }
-    next();
+    res.status(403).json({ mensaje: 'Acceso no permitido para este rol.' });
 });
 app.get('/api/session', (req, res) => res.json(req.user));
 app.post('/api/logout', (req, res) => {
@@ -498,7 +528,7 @@ app.post('/api/logout', (req, res) => {
 });
 
 // Clientes
-app.get('/api/clientes', (req, res) => {
+app.get('/api/clientes', (_req, res) => {
     db.all(`SELECT * FROM clientes ORDER BY id DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -511,7 +541,7 @@ app.post('/api/clientes', (req, res) => {
             ON CONFLICT(cedula) DO UPDATE SET nombre=excluded.nombre, telefono=excluded.telefono, direccion=excluded.direccion`,
         [cedula, nombre, telefono, direccion], function(err) {
             if (err) return res.status(500).json({ mensaje: 'Error al guardar cliente' });
-            db.get(`SELECT id FROM clientes WHERE cedula = ?`, [cedula], (err, row) => {
+            db.get(`SELECT id FROM clientes WHERE cedula = ?`, [cedula], (_err, row) => {
                 res.json({ success: true, id: row ? row.id : this.lastID, mensaje: 'Cliente guardado correctamente' });
             });
         });
@@ -535,14 +565,15 @@ app.post('/api/motos', (req, res) => {
             ON CONFLICT(placa) DO UPDATE SET marca=excluded.marca, modelo=excluded.modelo, cilindraje=excluded.cilindraje, color=excluded.color, kilometraje=excluded.kilometraje`,
         [cliente_id, (placa || '').toUpperCase(), marca, modelo, cilindraje, color, kilometraje], function(err) {
             if (err) return res.status(500).json({ mensaje: 'Error al registrar la moto' });
-            db.get(`SELECT id FROM motos WHERE placa = ?`, [(placa || '').toUpperCase()], (err, row) => {
+            db.get(`SELECT id FROM motos WHERE placa = ?`, [(placa || '').toUpperCase()], (_err, row) => {
                 res.json({ success: true, id: row ? row.id : this.lastID, mensaje: 'Moto registrada correctamente' });
             });
         });
 });
 
+const operationalOrderFields = 'ordenes.id, ordenes.moto_id, ordenes.mecanico_id, ordenes.tipo_mantenimiento, ordenes.motivo_ingreso, ordenes.trabajo_realizado, ordenes.estado, ordenes.fecha_ingreso';
 app.get('/api/motos/:id/historial', (req, res) => {
-    db.all(`SELECT * FROM ordenes WHERE moto_id = ? ORDER BY id DESC`, [req.params.id], (err, rows) => {
+    db.all(`SELECT ${isAdmin(req.user) ? '*' : operationalOrderFields} FROM ordenes WHERE moto_id = ? ORDER BY id DESC`, [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -550,7 +581,7 @@ app.get('/api/motos/:id/historial', (req, res) => {
 
 // Inventario
 app.get('/api/inventario', (req, res) => {
-    db.all(`SELECT * FROM inventario ORDER BY id DESC`, [], (err, rows) => {
+    db.all(`SELECT ${isAdmin(req.user) ? '*' : 'id, codigo, nombre, stock'} FROM inventario ORDER BY id DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
@@ -569,92 +600,292 @@ app.post('/api/inventario', (req, res) => {
 // Órdenes de Servicio
 app.get('/api/ordenes', (req, res) => {
     const buscar = req.query.buscar || '';
-    const query = `SELECT ordenes.*, motos.placa as moto_placa, motos.marca as moto_marca, clientes.nombre as cliente_nombre, usuarios.nombre as mecanico_nombre
-                   FROM ordenes JOIN motos ON ordenes.moto_id = motos.id JOIN clientes ON motos.cliente_id = clientes.id JOIN usuarios ON ordenes.mecanico_id = usuarios.id
-                   WHERE motos.placa LIKE ? OR ordenes.id LIKE ? OR clientes.nombre LIKE ? ORDER BY ordenes.id DESC`;
-    db.all(query, [`%${buscar}%`, `%${buscar}%`, `%${buscar}%`], (err, rows) => {
+    const mechanicId = req.user.rol === 'Mecanico' ? req.user.id : null;
+    const query = `SELECT ${isAdmin(req.user) ? 'ordenes.*' : operationalOrderFields}, motos.placa as moto_placa, motos.marca as moto_marca, motos.modelo as moto_modelo, clientes.nombre as cliente_nombre, usuarios.nombre as mecanico_nombre
+                   FROM ordenes LEFT JOIN motos ON ordenes.moto_id = motos.id LEFT JOIN clientes ON motos.cliente_id = clientes.id LEFT JOIN usuarios ON ordenes.mecanico_id = usuarios.id
+                   WHERE (motos.placa LIKE ? OR ordenes.id LIKE ? OR clientes.nombre LIKE ?)
+                   AND (? IS NULL OR ordenes.mecanico_id = ?) ORDER BY ordenes.id DESC`;
+    db.all(query, [`%${buscar}%`, `%${buscar}%`, `%${buscar}%`, mechanicId, mechanicId], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(req.user && normalizeIdentity(req.user.rol) === 'mecanico' ? rows.filter(row => row.mecanico_id === req.user.id) : rows);
+        res.json(rows);
     });
 });
 
-app.post('/api/ordenes', (req, res) => {
+app.post('/api/ordenes', async (req, res) => {
     const { moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra } = req.body;
-    db.run(`INSERT INTO ordenes (moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra, trabajo_realizado, estado) VALUES (?, ?, ?, ?, ?, 'En proceso', 'En proceso')`,
-        [moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra], function(err) {
+    const mechanic = await obtenerMecanicoAsignable(mecanico_id);
+    if (!mechanic) {
+        return res.status(400).json({ mensaje: 'Selecciona una moto y un mecánico válidos.' });
+    }
+    const price = Number(costo_mano_obra ?? 0);
+    if (isAdmin(req.user) && (!Number.isFinite(price) || price < 0)) {
+        return res.status(400).json({ mensaje: 'Indica un valor de mano de obra válido.' });
+    }
+    db.run(`INSERT INTO ordenes (moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra, trabajo_realizado, estado)
+        SELECT m.id, u.id, ?, ?, ?, 'En proceso', 'En proceso'
+        FROM motos m CROSS JOIN usuarios u WHERE m.id = ? AND u.id = ? AND u.rol = ?`,
+        [tipo_mantenimiento, motivo_ingreso, isAdmin(req.user) ? price : 0, moto_id, mechanic.id, mechanic.rol], function(err) {
             if (err) return res.status(500).json({ error: err.message });
+            if (!this.changes) return res.status(400).json({ mensaje: 'Selecciona una moto y un mecánico válidos.' });
             const nuevaOrdenId = this.lastID;
             broadcastSyncEvent('orden_actualizada', { ordenId: nuevaOrdenId, accion: 'creada' });
             res.json({ success: true, orden_id: nuevaOrdenId });
         });
 });
 
+async function obtenerMecanicoAsignable(id) {
+    const user = await getRow('SELECT id, rol FROM usuarios WHERE id = ?', [id]);
+    return canonicalRole(user?.rol) === 'Mecanico' ? user : null;
+}
+
+app.put('/api/ordenes/:id/asignacion', async (req, res) => {
+    const mechanic = await obtenerMecanicoAsignable(req.body?.mecanico_id);
+    if (!mechanic) return res.status(400).json({ mensaje: 'Selecciona un mecánico válido.' });
+    const result = await runOrderQuery(`UPDATE ordenes SET mecanico_id = ? WHERE id = ? AND estado = 'En proceso'
+        AND EXISTS (SELECT 1 FROM usuarios WHERE id = ? AND rol = ?)`, [mechanic.id, req.params.id, mechanic.id, mechanic.rol]);
+    if (!result.changes) return res.status(409).json({ mensaje: 'Solo puedes reasignar una orden en proceso.' });
+    broadcastSyncEvent('asignacion_actualizada');
+    res.json({ success: true });
+});
+
 app.put('/api/ordenes/:id/estado', (req, res) => {
-    const { estado } = req.body;
-    const estadosPermitidos = ['En proceso', 'Listo para entrega', 'Facturada', 'Cancelada'];
+    const estado = req.body?.estado === 'Listo para entrega' ? 'Terminada' : req.body?.estado;
+    const estadosPermitidos = ['En proceso', 'Terminada', 'Cancelada'];
     if (!estadosPermitidos.includes(estado)) {
         return res.status(400).json({ success: false, mensaje: 'Estado de orden no válido.' });
     }
-    db.run(`UPDATE ordenes SET estado = ? WHERE id = ?`, [estado, req.params.id], function(err) {
+    const mechanicId = normalizeIdentity(req.user.rol) === 'mecanico' ? req.user.id : null;
+    db.run(`UPDATE ordenes SET estado = ?, mano_obra_confirmada = 0 WHERE id = ?
+        AND estado NOT IN ('Facturada', 'Cancelada') AND estado <> ?
+        AND (? IS NULL OR (mecanico_id = ? AND estado = 'En proceso'))`,
+        [estado, req.params.id, estado, mechanicId, mechanicId], function(err) {
         if (err) return res.status(500).json({ success: false, mensaje: err.message });
+        if (!this.changes) return res.status(409).json({ mensaje: 'No se puede cambiar el estado de esta orden.' });
         broadcastSyncEvent('orden_actualizada', { ordenId: req.params.id, estado, accion: 'cambio_estado' });
+        if (estado === 'Terminada') broadcastSyncEvent('orden_terminada', { ordenId: req.params.id });
         res.json({ success: true, mensaje: `Estado actualizado a "${estado}".` });
     });
 });
 
-// Fotos de evidencia de la orden
-app.get('/api/ordenes/:id/fotos', (req, res) => {
-    db.all(`SELECT * FROM orden_fotos WHERE orden_id = ? ORDER BY id DESC`, [req.params.id], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows || []);
+// Evidencias: la ruta de disco se conserva en SQLite y se resuelve después de autorizar la orden.
+const listPhotos = (orderId, publishedOnly = false) => new Promise((resolve, reject) => {
+    db.all(`SELECT id, descripcion, fecha FROM orden_fotos WHERE orden_id = ?
+        AND (? = 0 OR publicada = 1) ORDER BY fecha, id`, [orderId, +publishedOnly],
+        (error, rows) => error ? reject(error) : resolve(rows));
+});
+
+function imageType(buffer) {
+    if (buffer.subarray(0, 3).toString('hex') === 'ffd8ff') return 'image/jpeg';
+    if (buffer.subarray(0, 8).toString('hex') === '89504e470d0a1a0a') return 'image/png';
+    if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+}
+
+async function sendOrderPhoto(res, orderId, photoId, publishedOnly = false) {
+    const row = await getRow(`SELECT url FROM orden_fotos WHERE orden_id = ? AND id = ?
+        AND (? = 0 OR publicada = 1)`, [orderId, photoId, +publishedOnly]);
+    if (!row) return res.sendStatus(404);
+    const name = path.basename(row.url);
+    if (!/^foto_ord_\d+_[\w-]+\.jpg$/.test(name)) return res.sendStatus(404);
+    const buffer = await fs.promises.readFile(path.join(uploadsDir, name)).catch(error => {
+        if (error.code !== 'ENOENT') throw error;
+    });
+    const type = buffer && imageType(buffer);
+    if (!type) return res.sendStatus(404);
+    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).type(type).send(buffer);
+}
+
+const getRow = (sql, params) => new Promise((resolve, reject) => {
+    db.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
+});
+const getTimeline = order => new Promise((resolve, reject) => {
+    db.all(`SELECT tipo, descripcion, fecha FROM orden_bitacora WHERE orden_id = ?
+        ORDER BY fecha, id`, [order.id], (error, rows) => {
+        if (error) return reject(error);
+        resolve([{ tipo: 'Ingreso', descripcion: 'Motocicleta recibida en el taller', fecha: order.fecha_ingreso }, ...rows]);
+    });
+});
+const isWorkshopDesk = user => isAdmin(user) || user?.rol === 'Recepcionista';
+
+const tracking = express.Router();
+const trackingHash = token => crypto.createHash('sha256').update(token).digest('hex');
+const trackingOrigin = process.env.TRACKING_PUBLIC_ORIGIN
+    ? new URL(process.env.TRACKING_PUBLIC_ORIGIN) : null;
+if (trackingOrigin && trackingOrigin.protocol !== 'https:') {
+    throw new Error('TRACKING_PUBLIC_ORIGIN debe usar HTTPS.');
+}
+
+tracking.use((_req, res, next) => {
+    res.set({
+        'Cache-Control': 'no-store',
+        'Referrer-Policy': 'no-referrer',
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    });
+    next();
+});
+tracking.get('/', (_req, res) => res.sendFile(path.join(publicDir, 'seguimiento.html')));
+tracking.get('/portal.js', (_req, res) => res.sendFile(path.join(publicDir, 'seguimiento.js')));
+for (const asset of ['tema-taller.css', 'fondo_moto.jpg', 'icon.png', 'identidad.js']) {
+    tracking.get('/' + asset, (_req, res) => res.sendFile(path.join(publicDir, asset)));
+}
+tracking.use(express.json({ limit: '2kb' }));
+tracking.use(async (req, res, next) => {
+    if (restoring) return res.sendStatus(503);
+    const token = req.get('Authorization')?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
+    if (!token) return res.sendStatus(404);
+    req.trackingOrder = await getRow(`
+        SELECT o.id, o.estado, o.fecha_ingreso, m.placa
+        FROM orden_seguimiento s JOIN ordenes o ON o.id = s.orden_id
+        JOIN motos m ON m.id = o.moto_id WHERE s.token_hash = ? OR EXISTS (
+            SELECT 1 FROM orden_seguimiento_envios e WHERE e.token_hash = ?
+            AND e.orden_id = s.orden_id AND e.version = s.token_hash)`, [trackingHash(token), trackingHash(token)]);
+    if (!req.trackingOrder) return res.sendStatus(404);
+    const order = req.trackingOrder;
+    const identifier = typeof req.body?.identificador === 'string'
+        ? req.body.identificador.trim().toUpperCase() : '';
+    if (identifier !== String(order.id) && identifier !== String(order.placa || '').trim().toUpperCase()) return res.sendStatus(404);
+    if (!identifier) return res.sendStatus(404);
+    next();
+});
+tracking.post('/consulta', async (req, res) => {
+    const order = req.trackingOrder;
+    const [bitacora, fotos] = await Promise.all([getTimeline(order), listPhotos(order.id, true)]);
+    res.json({ orden: order, bitacora, fotos });
+});
+tracking.post('/fotos/:fotoId', (req, res) =>
+    sendOrderPhoto(res, req.trackingOrder.id, req.params.fotoId, true));
+app.use('/seguimiento', tracking);
+
+app.post('/api/ordenes/:id/seguimiento', (req, res) => {
+    if (!isWorkshopDesk(req.user)) return res.sendStatus(403);
+    const token = crypto.randomBytes(32).toString('hex');
+    db.run(`INSERT INTO orden_seguimiento (orden_id, token_hash)
+        SELECT id, ? FROM ordenes WHERE id = ?
+        ON CONFLICT(orden_id) DO UPDATE SET token_hash = excluded.token_hash`,
+        [trackingHash(token), req.params.id], function(error) {
+            if (error) return res.sendStatus(500);
+            if (!this.changes) return res.sendStatus(404);
+            res.set('Cache-Control', 'no-store').json({
+                enlace: `${trackingOrigin?.origin || ''}/seguimiento/#${token}`,
+                externo: !!trackingOrigin
+            });
+        });
+});
+app.delete('/api/ordenes/:id/seguimiento', (req, res) => {
+    if (!isWorkshopDesk(req.user)) return res.sendStatus(403);
+    db.run('DELETE FROM orden_seguimiento WHERE orden_id = ?', [req.params.id], error => {
+        if (error) return res.sendStatus(500);
+        res.sendStatus(204);
     });
 });
 
-app.post('/api/ordenes/:id/fotos', (req, res) => {
-    const ordenId = req.params.id;
-    const { imagen_base64, descripcion } = req.body;
-    if (!imagen_base64) {
-        return res.status(400).json({ success: false, mensaje: 'Se requiere una imagen válida.' });
+app.post('/api/ordenes/:id/whatsapp', async (req, res) => {
+    if (!isWorkshopDesk(req.user)) return res.sendStatus(403);
+    const order = await getRow(`
+        SELECT o.id, o.estado, o.costo_mano_obra, o.trabajo_realizado, m.placa, c.nombre, c.telefono
+        FROM ordenes o JOIN motos m ON m.id = o.moto_id JOIN clientes c ON c.id = m.cliente_id
+        WHERE o.id = ? AND (o.estado = 'Facturada' OR
+            (o.estado IN ('Terminada', 'Listo para entrega') AND o.mano_obra_confirmada = 1))`, [req.params.id]);
+    if (!order) return res.status(409).json({ mensaje: isAdmin(req.user)
+        ? 'Termina la orden y confirma la mano de obra antes de compartirla.'
+        : 'La orden aún no está lista para compartir por WhatsApp.' });
+    let phone = String(order.telefono || '').replace(/\D/g, '');
+    if (phone.length === 10) phone = '57' + phone;
+    if (!/^[1-9]\d{10,14}$/.test(phone)) return res.status(400).json({ mensaje: 'Registra un número de WhatsApp válido para el cliente.' });
+    const photos = await listPhotos(order.id, true);
+    if (photos.length && !trackingOrigin) {
+        return res.status(409).json({ mensaje: 'Configura el dominio público de seguimiento para compartir las evidencias.' });
     }
-
-    try {
-        const matches = String(imagen_base64).match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        const dataBuffer = matches ? Buffer.from(matches[2], 'base64') : Buffer.from(imagen_base64, 'base64');
-        const fileName = `foto_ord_${ordenId}_${Date.now()}.jpg`;
-        const filePath = path.join(uploadsDir, fileName);
-        fs.writeFileSync(filePath, dataBuffer);
-
-        const relativeUrl = `/uploads/ordenes/${fileName}`;
-        db.run(`INSERT INTO orden_fotos (orden_id, url, descripcion) VALUES (?, ?, ?)`,
-            [ordenId, relativeUrl, descripcion || 'Evidencia de trabajo'], function(err) {
-                if (err) return res.status(500).json({ success: false, mensaje: err.message });
-                const fotoObj = { id: this.lastID, orden_id: ordenId, url: relativeUrl, descripcion: descripcion || 'Evidencia de trabajo' };
-                broadcastSyncEvent('foto_agregada', fotoObj);
-                res.json({ success: true, foto: fotoObj });
-            });
-    } catch (e) {
-        console.error('[FOTOS] Error al guardar foto:', e);
-        res.status(500).json({ success: false, mensaje: 'Error al procesar archivo de imagen: ' + e.message });
+    let link = '';
+    if (trackingOrigin) {
+        const token = crypto.randomBytes(32).toString('hex');
+        await runOrderQuery(`INSERT OR IGNORE INTO orden_seguimiento (orden_id, token_hash)
+            SELECT id, ? FROM ordenes WHERE id = ?`, [trackingHash(crypto.randomBytes(32).toString('hex')), order.id]);
+        const saved = await runOrderQuery(`INSERT INTO orden_seguimiento_envios (token_hash, orden_id, version)
+            SELECT ?, s.orden_id, s.token_hash FROM orden_seguimiento s JOIN ordenes o ON o.id = s.orden_id
+            WHERE s.orden_id = ? AND (o.estado = 'Facturada' OR
+                (o.estado IN ('Terminada', 'Listo para entrega') AND o.mano_obra_confirmada = 1))`, [trackingHash(token), order.id]);
+        if (!saved.changes) return res.status(409).json({ mensaje: 'La orden cambió. Vuelve a abrir el resumen.' });
+        link = `${trackingOrigin.origin}/seguimiento/#${token}`;
     }
+    if (!isAdmin(req.user)) delete order.costo_mano_obra;
+    delete order.telefono;
+    res.set('Cache-Control', 'no-store').json({ order, phone, link });
 });
 
-app.delete('/api/ordenes/:id/fotos/:fotoId', (req, res) => {
-    db.get(`SELECT url FROM orden_fotos WHERE id = ? AND orden_id = ?`, [req.params.fotoId, req.params.id], (err, row) => {
-        if (row && row.url) {
-            const diskPath = path.join(uploadsDir, path.basename(row.url));
-            if (fs.existsSync(diskPath)) {
-                try { fs.unlinkSync(diskPath); } catch (e) {}
-            }
-        }
-        db.run(`DELETE FROM orden_fotos WHERE id = ? AND orden_id = ?`, [req.params.fotoId, req.params.id], () => {
-            broadcastSyncEvent('foto_eliminada', { ordenId: req.params.id, fotoId: req.params.fotoId });
-            res.json({ success: true });
+const runOrderQuery = (sql, params = [], connection = db) => new Promise((resolve, reject) => {
+    connection.run(sql, params, function(error) { error ? reject(error) : resolve(this); });
+});
+
+app.use(['/api/ordenes/:id/bitacora', '/api/ordenes/:id/fotos'], (req, res, next) => {
+    if (!isWorkshopDesk(req.user) && normalizeIdentity(req.user.rol) !== 'mecanico') return res.sendStatus(403);
+    res.set('Cache-Control', 'no-store');
+    next();
+});
+
+app.get('/api/ordenes/:id/bitacora', async (req, res) => {
+    const order = await getRow('SELECT id, fecha_ingreso FROM ordenes WHERE id = ?', [req.params.id]);
+    if (!order) return res.sendStatus(404);
+    res.json(await getTimeline(order));
+});
+
+app.get('/api/ordenes/:id/fotos', async (req, res) => {
+    const photos = await listPhotos(req.params.id);
+    res.json(photos.map(photo => ({ ...photo, url: `/api/ordenes/${req.params.id}/fotos/${photo.id}` })));
+});
+app.get('/api/ordenes/:id/fotos/:fotoId', (req, res) => sendOrderPhoto(res, req.params.id, req.params.fotoId));
+
+app.post('/api/ordenes/:id/fotos', async (req, res) => {
+    const { imagen_base64, descripcion } = req.body || {};
+    const matches = typeof imagen_base64 === 'string' &&
+        imagen_base64.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
+    if (!matches || matches[2].length > 14_000_000) {
+        return res.status(400).json({ mensaje: 'Adjunte una imagen JPEG, PNG o WebP de hasta 10 MB.' });
+    }
+    const buffer = Buffer.from(matches[2], 'base64');
+    if (buffer.length > 10 * 1024 * 1024 || imageType(buffer) !== matches[1]) {
+        return res.status(400).json({ mensaje: 'El archivo no corresponde a una imagen admitida.' });
+    }
+    const orderId = Number(req.params.id);
+    if (!Number.isSafeInteger(orderId) || orderId < 1) return res.sendStatus(400);
+    const filename = `foto_ord_${orderId}_${crypto.randomUUID()}.jpg`;
+    const diskPath = path.join(uploadsDir, filename);
+    const caption = String(descripcion || '').trim().slice(0, 500) || 'Evidencia de trabajo';
+    const mechanicId = normalizeIdentity(req.user.rol) === 'mecanico' ? req.user.id : null;
+    await fs.promises.writeFile(diskPath, buffer, { flag: 'wx' });
+    let result;
+    try {
+        result = await new Promise((resolve, reject) => {
+            db.run(`INSERT INTO orden_fotos (orden_id, url, descripcion, publicada)
+                SELECT id, ?, ?, ? FROM ordenes WHERE id = ? AND estado = 'En proceso'
+                AND (? IS NULL OR mecanico_id = ?)`, [`/uploads/ordenes/${filename}`, caption, +!!mechanicId,
+                orderId, mechanicId, mechanicId], function(error) { error ? reject(error) : resolve(this); });
         });
+    } finally {
+        if (!result?.changes) await fs.promises.unlink(diskPath);
+    }
+    if (!result.changes) return res.status(409).json({ mensaje: 'La orden ya no está activa o asignada.' });
+    broadcastSyncEvent('foto_agregada', { orden_id: orderId, id: result.lastID });
+    res.json({ success: true, foto: { id: result.lastID, url: `/api/ordenes/${orderId}/fotos/${result.lastID}` } });
+});
+
+app.delete('/api/ordenes/:id/fotos/:fotoId', async (req, res) => {
+    if (!isWorkshopDesk(req.user)) return res.sendStatus(403);
+    const args = [req.params.id, req.params.fotoId];
+    const row = await getRow('SELECT url FROM orden_fotos WHERE orden_id = ? AND id = ?', args);
+    if (!row) return res.sendStatus(404);
+    db.run('DELETE FROM orden_fotos WHERE orden_id = ? AND id = ?', args, async error => {
+        if (error) return res.sendStatus(500);
+        await fs.promises.unlink(path.join(uploadsDir, path.basename(row.url))).catch(unlinkError => {
+            if (unlinkError.code !== 'ENOENT') console.error('[FOTOS]', unlinkError.message);
+        });
+        broadcastSyncEvent('foto_eliminada', { ordenId: req.params.id, fotoId: req.params.fotoId });
+        res.json({ success: true });
     });
 });
 
 // Alertas de Stock Insuficiente
-app.get('/api/alertas-stock', (req, res) => {
+app.get('/api/alertas-stock', (_req, res) => {
     db.all(`SELECT * FROM alertas_stock WHERE leida = 0 ORDER BY id DESC LIMIT 50`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows || []);
@@ -669,7 +900,7 @@ app.put('/api/alertas-stock/:id/leer', (req, res) => {
     });
 });
 
-app.put('/api/alertas-stock/leer-todas', (req, res) => {
+app.put('/api/alertas-stock/leer-todas', (_req, res) => {
     db.run(`UPDATE alertas_stock SET leida = 1`, [], (err) => {
         if (err) return res.status(500).json({ error: err.message });
         broadcastSyncEvent('alerta_stock_leida_todas', {});
@@ -678,14 +909,16 @@ app.put('/api/alertas-stock/leer-todas', (req, res) => {
 });
 
 app.get('/api/ordenes/:id/detalles', (req, res) => {
-    const query = `SELECT detalle_orden_repuestos.*, inventario.nombre as repuesto_nombre, inventario.codigo as repuesto_codigo FROM detalle_orden_repuestos JOIN inventario ON detalle_orden_repuestos.repuesto_id = inventario.id WHERE detalle_orden_repuestos.orden_id = ?`;
+    const fields = isAdmin(req.user) ? 'd.*' : 'd.id, d.orden_id, d.repuesto_id, d.cantidad';
+    const query = `SELECT ${fields}, inventario.nombre as repuesto_nombre, inventario.codigo as repuesto_codigo
+        FROM detalle_orden_repuestos d JOIN inventario ON d.repuesto_id = inventario.id WHERE d.orden_id = ?`;
     db.all(query, [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-// Repuestos reportados por el mecánico: no descuentan inventario ni fijan precio.
+// Consulta de solicitudes guardadas por versiones anteriores.
 app.get('/api/ordenes/:id/solicitudes-repuestos', (req, res) => {
     db.all(`SELECT solicitudes_repuestos_orden.*, inventario.nombre AS repuesto_nombre,
                    inventario.codigo AS repuesto_codigo, inventario.stock AS stock_disponible
@@ -709,7 +942,9 @@ app.post(['/api/ordenes/:id/repuestos', '/api/ordenes/:id/solicitudes-repuestos'
     let transaction = false;
     try {
         await run('BEGIN IMMEDIATE'); transaction = true;
-        const order = await get("SELECT * FROM ordenes WHERE id = ? AND estado = 'En proceso'", [ordenId]);
+        const mechanicId = normalizeIdentity(req.user.rol) === 'mecanico' ? req.user.id : null;
+        const order = await get(`SELECT id FROM ordenes WHERE id = ? AND estado = 'En proceso'
+            AND (? IS NULL OR mecanico_id = ?)`, [ordenId, mechanicId, mechanicId]);
         const part = await get('SELECT * FROM inventario WHERE id = ?', [repuestoId]);
         if (!order || !part) {
             await run('ROLLBACK'); transaction = false;
@@ -728,31 +963,41 @@ app.post(['/api/ordenes/:id/repuestos', '/api/ordenes/:id/solicitudes-repuestos'
         broadcastSyncEvent('orden_actualizada', { ordenId, accion: 'repuesto_agregado' });
         res.json({ success: true, stock_insuficiente: !!alerta, stock_actual: part.stock - cantidad, mensaje: alerta ? 'Repuesto registrado y descontado. Administración ha sido alertada del faltante.' : 'Repuesto registrado y descontado del inventario.' });
     } catch (error) {
-        if (transaction) await run('ROLLBACK').catch(() => {});
+        if (transaction) await run('ROLLBACK').catch(() => undefined);
         console.error('[REPUESTOS]', error.message);
         res.status(500).json({ mensaje: 'No se pudo confirmar la salida. Intente nuevamente.' });
     } finally { connection.close(); }
 });
 // Compatibilidad para clientes antiguos: las nuevas salidas nunca quedan pendientes.
-app.get('/api/solicitudes-repuestos', (req, res) => res.json([]));
-app.post('/api/solicitudes-repuestos/:id/aprobar', (req, res) => res.status(410).json({ mensaje: 'El flujo de aprobación fue retirado. Registre el repuesto directamente en la orden.' }));
+app.get('/api/solicitudes-repuestos', (_req, res) => res.json([]));
+app.post('/api/solicitudes-repuestos/:id/aprobar', (_req, res) => res.status(410).json({ mensaje: 'El flujo de aprobación fue retirado. Registre el repuesto directamente en la orden.' }));
 
 app.put('/api/ordenes/:id/reportar', (req, res) => {
-    db.run(`UPDATE ordenes SET trabajo_realizado = ? WHERE id = ?`, [req.body.trabajo_realizado, req.params.id], (err) => {
-        if (err) return res.status(500).json({ error: err.message });
+    const text = typeof req.body?.trabajo_realizado === 'string' ? req.body.trabajo_realizado.trim() : '';
+    if (!text || text.length > 4000) return res.status(400).json({ mensaje: 'Escriba un avance de hasta 4000 caracteres.' });
+    const mechanicId = normalizeIdentity(req.user.rol) === 'mecanico' ? req.user.id : null;
+    db.run(`INSERT INTO orden_bitacora (orden_id, tipo, descripcion)
+        SELECT id, 'Avance', ? FROM ordenes WHERE id = ? AND estado = 'En proceso'
+        AND (? IS NULL OR mecanico_id = ?)`, [text, req.params.id, mechanicId, mechanicId], function(error) {
+        if (error) return res.sendStatus(500);
+        if (!this.changes) return res.status(409).json({ mensaje: 'La orden ya no está activa o asignada.' });
         broadcastSyncEvent('orden_actualizada', { ordenId: req.params.id, accion: 'avance_reportado' });
         res.json({ success: true });
     });
 });
 
 app.put('/api/ordenes/:id/mano-obra', (req, res) => {
-    const costoManoObra = Number(req.body.costo_mano_obra);
-    if (!Number.isFinite(costoManoObra) || costoManoObra < 0) {
+    if (!isAdmin(req.user)) return res.sendStatus(403);
+    const value = req.body?.costo_mano_obra;
+    const costoManoObra = Number(value);
+    if (!['string', 'number'].includes(typeof value) || !String(value).trim() ||
+        !Number.isFinite(costoManoObra) || costoManoObra < 0) {
         return res.status(400).json({ success: false, mensaje: 'El valor de mano de obra debe ser un número igual o mayor que cero.' });
     }
 
     db.run(
-        `UPDATE ordenes SET costo_mano_obra = ? WHERE id = ? AND estado = 'En proceso'`,
+        `UPDATE ordenes SET costo_mano_obra = ?, mano_obra_confirmada = CASE WHEN estado = 'En proceso' THEN 0 ELSE 1 END
+         WHERE id = ? AND estado IN ('En proceso', 'Terminada', 'Listo para entrega')`,
         [costoManoObra, req.params.id],
         function(error) {
             if (error) return res.status(500).json({ success: false, mensaje: 'No se pudo actualizar la mano de obra.' });
@@ -766,17 +1011,20 @@ app.put('/api/ordenes/:id/mano-obra', (req, res) => {
 });
 
 app.put('/api/ordenes/:id/facturar', (req, res) => {
-    const { costo_mano_obra, trabajo_realizado } = req.body;
-    db.run(`UPDATE ordenes SET estado = 'Facturada', costo_mano_obra = ?, trabajo_realizado = ? WHERE id = ?`,
-        [costo_mano_obra, trabajo_realizado, req.params.id], (err) => {
+    if (!isAdmin(req.user)) return res.sendStatus(403);
+    db.run(`UPDATE ordenes SET estado = 'Facturada'
+        WHERE id = ? AND estado IN ('Terminada', 'Listo para entrega') AND mano_obra_confirmada = 1
+        AND costo_mano_obra = ?`,
+        [req.params.id, req.body?.costo_mano_obra], function(err) {
             if (err) return res.status(500).json({ error: err.message });
+            if (!this.changes) return res.status(409).json({ mensaje: 'Confirma el valor vigente de mano de obra antes del cobro.' });
             broadcastSyncEvent('orden_actualizada', { ordenId: req.params.id, accion: 'facturada' });
             res.json({ success: true });
         });
 });
 
 // Citas
-app.get('/api/citas', (req, res) => {
+app.get('/api/citas', (_req, res) => {
     db.all(`SELECT * FROM citas ORDER BY id DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -793,46 +1041,55 @@ app.post('/api/citas', (req, res) => {
         });
 });
 
-app.post('/api/citas/:id/convertir', (req, res) => {
-    db.get(`SELECT * FROM citas WHERE id = ?`, [req.params.id], (err, cita) => {
-        if (!cita) return res.status(404).json({ mensaje: 'Cita no encontrada' });
-        db.get(`SELECT motos.id as moto_id, usuarios.id as mecanico_id FROM motos JOIN clientes ON motos.cliente_id = clientes.id, usuarios WHERE motos.placa = ? LIMIT 1`, [cita.moto_placa], (err, match) => {
-            let motoId = match ? match.moto_id : null;
-            if (!motoId) {
-                db.run(`INSERT INTO clientes (cedula, nombre) VALUES ('000000000', ?)`, [cita.cliente_nombre], function(err) {
-                    let cId = this.lastID;
-                    db.run(`INSERT INTO motos (cliente_id, placa, marca, cilindraje, kilometraje) VALUES (?, ?, 'Genérica', 150, 0)`, [cId, cita.moto_placa], function(err) {
-                        let mId = this.lastID;
-                        db.run(`INSERT INTO ordenes (moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra, trabajo_realizado, estado) VALUES (?, 1, 'Preventivo', ?, 50000, 'Ingreso desde cita', 'En proceso')`,
-                            [mId, req.body.motivo_ingreso || cita.motivo], function(err) {
-                                let ordId = this.lastID;
-                                db.run(`UPDATE citas SET estado = 'Atendida' WHERE id = ?`, [req.params.id], () => {
-                                    res.json({ success: true, orden_id: ordId });
-                                });
-                            });
-                    });
-                });
-            } else {
-                db.run(`INSERT INTO ordenes (moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra, trabajo_realizado, estado) VALUES (?, 1, 'Preventivo', ?, 50000, 'Ingreso desde cita', 'En proceso')`,
-                    [motoId, req.body.motivo_ingreso || cita.motivo], function(err) {
-                        let ordId = this.lastID;
-                        db.run(`UPDATE citas SET estado = 'Atendida' WHERE id = ?`, [req.params.id], () => {
-                            res.json({ success: true, orden_id: ordId });
-                        });
-                    });
-            }
-        });
-    });
+app.post('/api/citas/:id/convertir', async (req, res) => {
+    const mechanicId = req.body?.mecanico_id;
+    const connection = new sqlite3.Database(dbFile);
+    connection.configure('busyTimeout', 10000);
+    const get = (sql, params) => new Promise((resolve, reject) =>
+        connection.get(sql, params, (error, row) => error ? reject(error) : resolve(row)));
+    const run = (sql, params = []) => new Promise((resolve, reject) =>
+        connection.run(sql, params, function(error) { error ? reject(error) : resolve(this); }));
+    let pending = false;
+    try {
+        await run('BEGIN IMMEDIATE');
+        pending = true;
+        const mechanic = await get('SELECT rol FROM usuarios WHERE id = ?', [mechanicId]);
+        if (canonicalRole(mechanic?.rol) !== 'Mecanico') {
+            return res.status(400).json({ mensaje: 'Selecciona un mecánico válido.' });
+        }
+        const cita = await get('SELECT * FROM citas WHERE id = ?', [req.params.id]);
+        if (!cita) return res.status(404).json({ mensaje: 'Cita no encontrada.' });
+        if (cita.estado === 'Atendida') return res.status(409).json({ mensaje: 'La cita ya ingresó al taller.' });
+        const placa = cita.moto_placa.trim().toUpperCase();
+        const existing = await get('SELECT id FROM motos WHERE upper(placa) = ?', [placa]);
+        let motoId = existing?.id;
+        if (!motoId) {
+            const client = await run('INSERT INTO clientes (nombre) VALUES (?)', [cita.cliente_nombre]);
+            const moto = await run("INSERT INTO motos (cliente_id, placa, marca, cilindraje, kilometraje) VALUES (?, ?, 'Genérica', 150, 0)",
+                [client.lastID, placa]);
+            motoId = moto.lastID;
+        }
+        const order = await run(`INSERT INTO ordenes (moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra, trabajo_realizado, estado)
+            VALUES (?, ?, 'Preventivo', ?, 0, 'Ingreso desde cita', 'En proceso')`, [motoId, mechanicId, req.body?.motivo_ingreso || cita.motivo]);
+        await run("UPDATE citas SET estado = 'Atendida' WHERE id = ?", [cita.id]);
+        await run('COMMIT');
+        pending = false;
+        broadcastSyncEvent('orden_actualizada', { ordenId: order.lastID, accion: 'creada' });
+        res.json({ success: true, orden_id: order.lastID });
+    } finally {
+        if (pending) await run('ROLLBACK').catch(() => undefined);
+        connection.close();
+    }
 });
 
 // Reportes
-app.get('/api/reportes/contabilidad', (req, res) => {
+app.get('/api/reportes/contabilidad', (_req, res) => {
     const q1 = `SELECT SUM(costo_mano_obra) as total_mano FROM ordenes WHERE estado = 'Facturada'`;
     const q2 = `SELECT SUM(detalle_orden_repuestos.cantidad * detalle_orden_repuestos.precio_unitario) as total_rep FROM detalle_orden_repuestos JOIN ordenes ON detalle_orden_repuestos.orden_id = ordenes.id WHERE ordenes.estado = 'Facturada'`;
     const q3 = `SELECT SUM(costo_mano_obra) as por_producir FROM ordenes WHERE estado = 'En proceso'`;
-    db.get(q1, [], (err, r1) => {
-        db.get(q2, [], (err, r2) => {
-            db.get(q3, [], (err, r3) => {
+    db.get(q1, [], (_err, r1) => {
+        db.get(q2, [], (_err, r2) => {
+            db.get(q3, [], (_err, r3) => {
                 const mano = r1?.total_mano || 0;
                 const rep = r2?.total_rep || 0;
                 res.json({ total_mano_obra: mano, total_repuestos_venta: rep, ganancia_repuestos: rep * 0.3, por_producir: r3?.por_producir || 0, ganancia_total: mano + rep });
@@ -841,8 +1098,8 @@ app.get('/api/reportes/contabilidad', (req, res) => {
     });
 });
 
-app.get('/api/reportes/mecanicos', (req, res) => {
-    db.all(`SELECT usuarios.nombre, COUNT(ordenes.id) as total_ordenes, SUM(ordenes.costo_mano_obra) as total_facturado_mano FROM usuarios LEFT JOIN ordenes ON usuarios.id = ordenes.mecanico_id AND ordenes.estado = 'Facturada' WHERE usuarios.rol = 'Mecanico' GROUP BY usuarios.id`, [], (err, rows) => {
+app.get('/api/reportes/mecanicos', (_req, res) => {
+    db.all(`SELECT usuarios.nombre, COUNT(ordenes.id) as total_ordenes, SUM(ordenes.costo_mano_obra) as total_facturado_mano FROM usuarios LEFT JOIN ordenes ON usuarios.id = ordenes.mecanico_id AND ordenes.estado = 'Facturada' WHERE usuarios.rol = 'Mecanico' GROUP BY usuarios.id`, [], (_err, rows) => {
         res.json(rows || []);
     });
 });
@@ -858,6 +1115,7 @@ app.get('/api/reportes/detallado', (req, res) => {
             o.costo_mano_obra,
             o.trabajo_realizado,
             o.estado,
+            o.mano_obra_confirmada,
             o.tipo_mantenimiento,
             m.placa as moto_placa,
             m.marca as moto_marca,
@@ -893,8 +1151,11 @@ app.get('/api/reportes/detallado', (req, res) => {
         params.push(`%${cliente}%`, `%${cliente}%`);
     }
     if (estado) {
-        query += ` AND o.estado = ?`;
-        params.push(estado);
+        if (estado === 'Terminada') query += " AND o.estado IN ('Terminada', 'Listo para entrega')";
+        else {
+            query += ' AND o.estado = ?';
+            params.push(estado);
+        }
     }
     if (fecha_inicio) {
         query += ` AND date(o.fecha_ingreso) >= date(?)`;
@@ -960,13 +1221,14 @@ app.get('/api/reportes/detallado', (req, res) => {
 
 // Configuración general
 app.get('/api/config', (req, res) => {
-    db.get(`SELECT * FROM configuracion WHERE id = 1`, [], (err, row) => {
-        res.json(row || {});
+    const fields = isAdmin(req.user) ? '*' : 'nombre_taller, eslogan_taller, tema';
+    db.get(`SELECT ${fields} FROM configuracion WHERE id = 1`, [], (_err, row) => {
+        res.json({ ...row, nombre_taller: NOMBRE_TALLER });
     });
 });
 
 app.post('/api/config', (req, res) => {
-    const { nombre_taller, nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre, backup_interval_min, eslogan_taller } = req.body;
+    const { nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre, backup_interval_min, eslogan_taller } = req.body;
     const temasPermitidos = ['dark', 'dark-graphite', 'dark-emerald', 'light-amber', 'light-blue', 'light-emerald'];
     if (tema && !temasPermitidos.includes(tema)) return res.status(400).json({ success: false, mensaje: 'Tema visual no válido.' });
     
@@ -976,7 +1238,7 @@ app.post('/api/config', (req, res) => {
             eslogan_taller=COALESCE(?, eslogan_taller)
             WHERE id = 1`,
         [
-            nombre_taller, nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre,
+            NOMBRE_TALLER, nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre,
             backup_interval_min !== undefined ? Number(backup_interval_min) : null,
             eslogan_taller || null
         ], (err) => {
@@ -984,13 +1246,13 @@ app.post('/api/config', (req, res) => {
             if (backup_interval_min !== undefined) {
                 configurarAutoBackup(backup_interval_min);
             }
-            broadcastSyncEvent('config_actualizada', { nombre_taller, eslogan_taller });
+            broadcastSyncEvent('config_actualizada', { nombre_taller: NOMBRE_TALLER, eslogan_taller });
             res.json({ success: true });
         });
 });
 
 // Copias de Seguridad (Backup)
-app.get('/api/backup', (req, res) => {
+app.get('/api/backup', (_req, res) => {
     const timestamp = Date.now();
     const backupName = `taller_backup_${timestamp}.db`;
     res.download(dbFile, backupName, (err) => {
@@ -1008,7 +1270,7 @@ app.post('/api/config-backup', (req, res) => {
     });
 });
 
-app.post('/api/backup-ejecutar', (req, res) => {
+app.post('/api/backup-ejecutar', (_req, res) => {
     db.get(`SELECT backup_path FROM configuracion WHERE id = 1`, (err, row) => {
         if (err) {
             console.error('[BACKUP] Error al consultar la carpeta de respaldo:', err.message);
@@ -1032,72 +1294,143 @@ app.post('/api/backup-ejecutar', (req, res) => {
 });
 
 app.post('/api/restore', async (req, res) => {
-    const sourcePath = req.body && req.body.sourcePath;
-    if (!sourcePath || path.extname(sourcePath).toLowerCase() !== '.db' || !fs.existsSync(sourcePath)) {
+    const sourcePath = req.body?.sourcePath;
+    if (typeof sourcePath !== 'string' || path.extname(sourcePath).toLowerCase() !== '.db' || !fs.existsSync(sourcePath)) {
         return res.status(400).json({ success: false, mensaje: 'Seleccione un archivo .db existente.' });
     }
-    const candidate = new sqlite3.Database(sourcePath, sqlite3.OPEN_READONLY, (openError) => {
-        if (openError) return res.status(400).json({ success: false, mensaje: 'El archivo no es una base SQLite válida.' });
-        candidate.get('PRAGMA integrity_check', (integrityError, integrity) => {
-            if (integrityError || !integrity || integrity.integrity_check !== 'ok') {
-                return candidate.close(() => res.status(400).json({ success: false, mensaje: 'La integridad de la copia no es válida.' }));
-            }
-            candidate.all("SELECT name FROM sqlite_master WHERE type='table'", async (tablesError, tables) => {
-                const names = new Set((tables || []).map((table) => table.name));
-                const required = ['clientes', 'motos', 'usuarios', 'inventario', 'detalle_orden_repuestos', 'citas', 'configuracion'];
-                if (tablesError || !required.every((name) => names.has(name)) || !(names.has('ordenes') || names.has('ordenes_servicio'))) {
-                    return candidate.close(() => res.status(400).json({ success: false, mensaje: 'La copia no contiene las tablas de HIDEP-SOFT.' }));
-                }
-                await new Promise((resolve) => candidate.close(resolve));
-                const stagedPath = `${dbFile}.restore-${Date.now()}`;
-                const previousPath = `${dbFile}.pre-restore-${Date.now()}`;
-                db.close((closeError) => {
-                    if (closeError) return res.status(500).json({ success: false, mensaje: 'No se pudo detener SQLite para restaurar.' });
-                    try {
-                        fs.copyFileSync(sourcePath, stagedPath);
-                        fs.copyFileSync(dbFile, previousPath);
-                        fs.renameSync(stagedPath, dbFile);
-                        db = new sqlite3.Database(dbFile, (reopenError) => {
-                            if (reopenError) {
-                                try { fs.copyFileSync(previousPath, dbFile); } catch (rollbackError) { console.error('[RESTORE] Falló rollback:', rollbackError); }
-                                db = new sqlite3.Database(dbFile);
-                                return res.status(500).json({ success: false, mensaje: 'Falló la apertura tras restaurar; se recuperó la base anterior.' });
-                            }
-                            db.run('PRAGMA foreign_keys = ON');
-                            inicializarTablas();
-                            res.json({ success: true, mensaje: 'Restauración completada. Reinicie la aplicación para cargar todos los cambios.' });
-                        });
-                    } catch (restoreError) {
-                        try { if (fs.existsSync(stagedPath)) fs.unlinkSync(stagedPath); } catch (cleanupError) { console.error(cleanupError); }
-                        db = new sqlite3.Database(dbFile);
-                        res.status(500).json({ success: false, mensaje: `No se pudo restaurar: ${restoreError.message}` });
-                    }
-                });
+    if (path.resolve(sourcePath) === path.resolve(dbFile)) {
+        return res.status(400).json({ success: false, mensaje: 'Seleccione una copia distinta de la base en uso.' });
+    }
+
+    const suffix = crypto.randomUUID();
+    const stagedPath = `${dbFile}.restore-${suffix}`;
+    const previousPath = `${dbFile}.pre-restore-${suffix}`;
+    let candidate;
+    let staged;
+    let previousClosed = false;
+    let replaced = false;
+    restoring = true;
+    try {
+        try {
+            candidate = await new Promise((resolve, reject) => {
+                const connection = new sqlite3.Database(sourcePath, sqlite3.OPEN_READONLY,
+                    error => error ? reject(error) : resolve(connection));
             });
-        });
-    });
+            const [integrity] = await queryAll(candidate, 'PRAGMA integrity_check');
+            const tables = new Set((await queryAll(candidate, "SELECT name FROM sqlite_master WHERE type = 'table'")).map(row => row.name));
+            const required = ['clientes', 'motos', 'usuarios', 'inventario', 'detalle_orden_repuestos', 'citas', 'configuracion'];
+            if (integrity?.integrity_check !== 'ok' || !required.every(name => tables.has(name)) ||
+                !(tables.has('ordenes') || tables.has('ordenes_servicio'))) {
+                throw new Error('La copia no contiene una base íntegra de HIDEP-SOFT-SG.');
+            }
+        } catch {
+            return res.status(400).json({ success: false, mensaje: 'El archivo no contiene una copia íntegra de HIDEP-SOFT-SG.' });
+        }
+
+        await createDatabaseSnapshot(stagedPath, candidate);
+        staged = await openDatabase(stagedPath);
+        await inicializarTablas(staged);
+        await closeConnection(staged);
+        staged = undefined;
+        await createDatabaseSnapshot(previousPath);
+        await closeConnection(db);
+        previousClosed = true;
+        fs.renameSync(stagedPath, dbFile);
+        replaced = true;
+        db = await openDatabase(dbFile);
+        previousClosed = false;
+        await refreshBackupInterval();
+        res.json({ success: true, mensaje: 'Restauración completada. Inicie sesión de nuevo.' });
+        for (const id of new Set([...sessions.values()].map(session => session.id))) invalidateUserSessions(id);
+    } catch (error) {
+        console.error('[RESTORE]', error.message);
+        if (previousClosed) {
+            if (replaced) fs.copyFileSync(previousPath, dbFile);
+            db = await openDatabase(dbFile);
+        }
+        res.status(500).json({ success: false, mensaje: 'No se pudo completar la restauración.' });
+    } finally {
+        try {
+            if (candidate) await closeConnection(candidate);
+            if (staged) await closeConnection(staged);
+            fs.rmSync(stagedPath, { force: true });
+        } finally {
+            restoring = false;
+        }
+    }
 });
 
 // Gestión de usuarios
-app.get('/api/usuarios', (req, res) => {
-    db.all(`SELECT id, nombre, username, rol, permisos, cedula, pregunta_seguridad FROM usuarios`, [], (err, rows) => {
-        if (err) return res.status(500).json({ mensaje: 'No se pudieron consultar los usuarios.' });
-        res.json(rows || []);
+app.get('/api/mecanicos', async (_req, res) => {
+    db.all('SELECT id, nombre, rol FROM usuarios ORDER BY nombre', (error, rows) => {
+        if (error) return res.status(500).json({ mensaje: 'No se pudieron consultar los mecánicos.' });
+        res.json(rows.filter(user => canonicalRole(user.rol) === 'Mecanico').map(({ id, nombre }) => ({ id, nombre })));
     });
 });
 
-app.post('/api/usuarios', (req, res) => {
-    const { nombre, username, password, rol, permisos, cedula, pregunta_seguridad, respuesta_seguridad } = req.body;
-    if (!nombre || !username || !password || String(password).length < 10) return res.status(400).json({ mensaje: 'Complete los datos y use una contraseña de al menos 10 caracteres.' });
-    if (cedula && (!pregunta_seguridad || !respuesta_seguridad)) return res.status(400).json({ mensaje: 'Configure pregunta y respuesta de seguridad juntas.' });
-    hashPassword(password).then((passwordHash) => {
-      const answerHash = respuesta_seguridad ? hashPassword(String(respuesta_seguridad).trim().toLocaleLowerCase('es')) : Promise.resolve(null);
-      answerHash.then((recoveryHash) => db.run(`INSERT INTO usuarios (nombre, username, password, rol, permisos, cedula, pregunta_seguridad, respuesta_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [nombre, username, passwordHash, rol, JSON.stringify(permisos), cedula || null, pregunta_seguridad || null, recoveryHash], (err) => {
-            if (err) return res.status(500).json({ mensaje: 'Error al crear usuario o usuario duplicado' });
-            res.json({ success: true });
+app.get('/api/usuarios', (_req, res) => {
+    db.all(`SELECT id, nombre, username, rol, permisos, cedula, pregunta_seguridad FROM usuarios`, [], (err, rows) => {
+        if (err) return res.status(500).json({ mensaje: 'No se pudieron consultar los usuarios.' });
+        res.json(rows.map(user => {
+            const rol = canonicalRole(user.rol) || user.rol;
+            return { ...user, rol, permisos: JSON.stringify(rolePermissions[rol] || {}) };
         }));
-    }).catch(() => res.status(500).json({ mensaje: 'No se pudo proteger la contraseña.' }));
+    });
+});
+
+app.post('/api/usuarios', async (req, res) => {
+    const { password, cedula, pregunta_seguridad, respuesta_seguridad } = req.body || {};
+    const nombre = String(req.body?.nombre || '').trim();
+    const username = String(req.body?.username || '').trim();
+    const rol = canonicalRole(req.body?.rol);
+    if (!nombre || !username || !rol || typeof password !== 'string' || password.trim().length < 10) {
+        return res.status(400).json({ mensaje: 'Indica nombre, usuario, un rol válido y una contraseña de al menos 10 caracteres.' });
+    }
+    if ((cedula || pregunta_seguridad || respuesta_seguridad) && (!cedula || !pregunta_seguridad || !respuesta_seguridad)) {
+        return res.status(400).json({ mensaje: 'Completa los tres campos de recuperación.' });
+    }
+    try {
+        const [passwordHash, recoveryHash] = await Promise.all([hashPassword(password),
+            respuesta_seguridad ? hashPassword(String(respuesta_seguridad).trim().toLocaleLowerCase('es')) : null]);
+        await runOrderQuery(`INSERT INTO usuarios (nombre, username, password, rol, permisos, cedula, pregunta_seguridad, respuesta_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [nombre, username, passwordHash, rol, JSON.stringify(rolePermissions[rol]),
+            cedula || null, pregunta_seguridad || null, recoveryHash]);
+        res.json({ success: true });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ mensaje: 'El usuario o la cédula ya están registrados.' });
+        throw error;
+    }
+});
+
+app.put('/api/usuarios/:id', async (req, res) => {
+    const id = Number(req.params.id);
+    const nombre = String(req.body?.nombre || '').trim();
+    const username = String(req.body?.username || '').trim();
+    const rol = canonicalRole(req.body?.rol);
+    if (!nombre || !username || !rol) return res.status(400).json({ mensaje: 'Indica nombre, usuario y un rol válido.' });
+    const target = await getRow('SELECT username, rol FROM usuarios WHERE id = ?', [id]);
+    if (!target) return res.sendStatus(404);
+    if ((target.username === 'admin' && username !== 'admin') ||
+        ((target.username === 'admin' || id === req.user.id) && rol !== 'Administrador')) {
+        return res.status(409).json({ mensaje: 'La cuenta principal y la sesión actual deben conservar el rol Administrador.' });
+    }
+    try {
+        const result = await runOrderQuery(`UPDATE usuarios SET nombre = ?, username = ?, rol = ?, permisos = ?
+            WHERE id = ? AND username = ? AND rol = ? AND (? = 0 OR NOT EXISTS
+                (SELECT 1 FROM ordenes WHERE mecanico_id = ? AND estado = 'En proceso'))`,
+            [nombre, username, rol, JSON.stringify(rolePermissions[rol]), id, target.username, target.rol,
+                +((canonicalRole(target.rol) === 'Mecanico') && rol !== 'Mecanico'), id]);
+        if (!result.changes) return res.status(409).json({ mensaje: 'Reasigna las órdenes en proceso del mecánico o vuelve a cargar el usuario.' });
+        if (canonicalRole(target.rol) !== rol) invalidateUserSessions(id);
+        else for (const session of sessions.values()) if (session.id === id) {
+            session.nombre = nombre;
+            session.username = username;
+        }
+        res.json({ success: true });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ mensaje: 'El nombre de usuario ya está registrado.' });
+        throw error;
+    }
 });
 
 // Restablecimiento / cambio de contraseña exclusivo para Administrador
@@ -1111,7 +1444,7 @@ app.put('/api/usuarios/:id/password', async (req, res) => {
 
     if (adminPassword) {
         const admin = await new Promise((resolve) => {
-            db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], (err, row) => resolve(row));
+            db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], (_err, row) => resolve(row));
         });
         const isMatch = admin && await verifyPassword(adminPassword, admin.password);
         if (!isMatch) {
@@ -1123,6 +1456,8 @@ app.put('/api/usuarios/:id/password', async (req, res) => {
         const hash = await hashPassword(nuevaPassword);
         db.run(`UPDATE usuarios SET password = ? WHERE id = ?`, [hash, userId], function(err) {
             if (err) return res.status(500).json({ success: false, mensaje: 'Error al actualizar contraseña: ' + err.message });
+            if (!this.changes) return res.sendStatus(404);
+            if (Number(userId) !== req.user.id) invalidateUserSessions(Number(userId));
             res.json({ success: true, mensaje: 'Contraseña actualizada exitosamente.' });
         });
     } catch (e) {
@@ -1132,11 +1467,15 @@ app.put('/api/usuarios/:id/password', async (req, res) => {
 
 app.delete('/api/usuarios/:id', (req, res) => {
     const { password } = req.body;
-    db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], async (err, admin) => {
+    db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], async (_err, admin) => {
         const isMatch = admin && await verifyPassword(password, admin.password);
              
         if (!isMatch) return res.status(401).json({ mensaje: 'Contraseña de administrador incorrecta.' });
-        db.run(`DELETE FROM usuarios WHERE id = ?`, [req.params.id], () => {
+        db.run(`DELETE FROM usuarios WHERE id = ? AND username <> 'admin' AND id <> ?
+            AND NOT EXISTS (SELECT 1 FROM ordenes WHERE mecanico_id = usuarios.id)`, [req.params.id, req.user.id], function(error) {
+            if (error) return res.sendStatus(500);
+            if (!this.changes) return res.status(409).json({ mensaje: 'La cuenta está protegida o vinculada a órdenes.' });
+            invalidateUserSessions(Number(req.params.id));
             res.json({ success: true });
         });
     });
@@ -1145,13 +1484,17 @@ app.delete('/api/usuarios/:id', (req, res) => {
 // Reset del sistema
 app.post('/api/reset-sistema', (req, res) => {
     const { password } = req.body;
-    db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], async (err, admin) => {
+    db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], async (_err, admin) => {
         const isMatch = admin && await verifyPassword(password, admin.password);
 
         if (!isMatch) return res.status(401).json({ mensaje: 'Contraseña de administrador incorrecta.' });
         db.serialize(() => {
             db.run(`DELETE FROM solicitudes_repuestos_orden`);
             db.run(`DELETE FROM detalle_orden_repuestos`);
+            db.run(`DELETE FROM orden_seguimiento_envios`);
+            db.run(`DELETE FROM orden_seguimiento`);
+            db.run(`DELETE FROM orden_bitacora`);
+            db.run(`DELETE FROM orden_fotos`);
             db.run(`DELETE FROM ordenes`);
             db.run(`DELETE FROM motos`);
             db.run(`DELETE FROM clientes`);
@@ -1163,42 +1506,66 @@ app.post('/api/reset-sistema', (req, res) => {
 });
 
 // Impresoras
-app.get('/api/impresoras', (req, res) => {
+app.get('/api/impresoras', (_req, res) => {
     res.json(['Impresora POS Termica 58mm', 'Impresora Facturación PDF', 'Microsoft Print to PDF']);
 });
 
+app.use('/api', (error, _req, res, next) => {
+    if (res.headersSent) return next(error);
+    const status = error.status >= 400 && error.status < 500 ? error.status : 500;
+    if (status === 500) console.error('[API]', error.message);
+    res.status(status).json({ mensaje: status === 500 ? 'Error interno del servidor.' : 'Solicitud inválida.' });
+});
+
 // ================= INICIALIZACIÓN DEL SERVIDOR =================
-let serverInstance = null;
+let serverInstance;
+let trackingServer;
+let startPromise;
+
+function listen(app, port, hostname) {
+    return new Promise((resolve, reject) => {
+        const listener = app.listen(port, hostname);
+        listener.once('error', reject);
+        listener.once('listening', () => {
+            listener.removeListener('error', reject);
+            resolve(listener);
+        });
+    });
+}
+
 function startServer(port = PORT) {
-    return new Promise((resolve, reject) => {
-        if (serverInstance) return resolve(serverInstance);
-        // Escucha en 0.0.0.0 para permitir acceso desde PC local y tablets/celulares en la red LAN
-        serverInstance = app.listen(port, '0.0.0.0', () => {
-            resolve(serverInstance);
-        });
-        serverInstance.on('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-                console.warn(`[SERVER] Puerto ${port} en uso, asumiendo servidor activo.`);
-                resolve(null);
-            } else {
-                console.error('[SERVER] Error en servidor Express:', err);
-                reject(err);
+    return startPromise ||= (async () => {
+        await ensureDatabase();
+        serverInstance = await listen(app, Number(port), '0.0.0.0');
+        try {
+            if (process.env.TRACKING_PORT) {
+                const trackingApp = express();
+                trackingApp.disable('x-powered-by');
+                trackingApp.use('/seguimiento', tracking);
+                trackingServer = await listen(trackingApp, Number(process.env.TRACKING_PORT), '127.0.0.1');
             }
-        });
-    });
+            return serverInstance;
+        } catch (error) {
+            await new Promise(resolve => serverInstance.close(resolve));
+            throw error;
+        }
+    })();
 }
 
-function closeDatabase() {
+async function closeDatabase() {
+    trackingServer?.close();
     if (backupIntervalTimer) { clearInterval(backupIntervalTimer); backupIntervalTimer = null; }
-    return new Promise((resolve, reject) => {
-        if (!db) return resolve();
-        db.close((error) => error ? reject(error) : resolve());
+    if (db) await closeConnection(db);
+}
+
+if (require.main === module) {
+    startServer().then(listener => {
+        console.log(`[SERVER] HIDEP-SOFT-SG disponible en el puerto ${listener.address().port}.`);
+    }).catch(async error => {
+        console.error('[SERVER] No se pudo iniciar:', error.message);
+        await closeDatabase().catch(() => undefined);
+        process.exitCode = 1;
     });
 }
 
-// Iniciar automáticamente si se ejecuta directo con node
-if (require.main === module || !process.env.APP_IS_ELECTRON) {
-    startServer();
-}
-
-module.exports = { app, startServer, closeDatabase, resolveDbPath };
+module.exports = { app, startServer, closeDatabase, resolveDbPath, desktopBackupKey };
