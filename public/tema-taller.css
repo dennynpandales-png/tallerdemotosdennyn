@@ -1,0 +1,56 @@
+:root {
+    color-scheme: dark;
+    --sg-base: #080b11;
+    --sg-input: #070a0f;
+    --sg-text: #f8fafc;
+    --sg-muted: #b1bfd0;
+    --sg-accent: #f59e0b;
+    --sg-accent-hover: #d97706;
+    --sg-border: #64748b;
+    --sg-border-subtle: #3d4c61;
+    --sg-panel: linear-gradient(145deg, #18202c 0%, #0d121b 100%);
+    --sg-panel-shadow: 0 18px 42px #0009, inset 0 1px 3px #ffffff1f;
+    --sg-workshop-image: url("fondo_moto.jpg");
+    --sg-workshop-shade: linear-gradient(#080b11be 0%, #080b11e8 100%);
+    --sg-workshop-font: "Segoe UI", system-ui, sans-serif;
+}
+
+.fondo-taller {
+    position: relative;
+    isolation: isolate;
+    min-height: 100vh;
+    min-height: 100svh;
+    background-color: var(--sg-base);
+    color: var(--sg-text);
+    font-family: var(--sg-workshop-font);
+}
+
+.fondo-taller::before {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background: var(--sg-workshop-shade), var(--sg-workshop-image) center / cover no-repeat;
+}
+
+.logo-taller {
+    display: block;
+    width: 4rem;
+    aspect-ratio: 1;
+    max-width: 100%;
+    object-fit: cover;
+    border: 1px solid var(--sg-accent);
+    border-radius: .75rem;
+    box-shadow: 0 4px 14px #f59e0b45;
+}
+
+.panel-taller {
+    background: var(--sg-panel);
+    border: 1px solid var(--sg-border-subtle);
+    box-shadow: var(--sg-panel-shadow);
+}
+
+@media (max-width: 768px) {
+    .fondo-taller::before { background-position: center, center 25%; }
+}

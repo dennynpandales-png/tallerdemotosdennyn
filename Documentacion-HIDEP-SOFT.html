@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual visual y documentación UML · HIDEP-SOFT-SG</title>
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; color: #172338; font-family: "Segoe UI", Arial, sans-serif; font-size: 9pt; line-height: 1.36; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { position: relative; width: 210mm; height: 297mm; padding: 12mm 13mm 13mm; overflow: hidden; background: #fff; page-break-after: always; break-after: page; }
+.page:last-child { page-break-after: auto; break-after: auto; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 4mm; color: #10233d; font-size: 25pt; line-height: 1.08; }
+h2 { margin: 0 0 2.5mm; color: #12355b; font-size: 15.5pt; line-height: 1.15; }
+h3 { margin: 2.8mm 0 1.4mm; color: #14577a; font-size: 10pt; }
+p { margin: 0 0 2mm; }
+ul, ol { margin: 1mm 0 2mm; padding-left: 5mm; }
+li { margin-bottom: .8mm; }
+.eyebrow { margin-bottom: 1.5mm; color: #0e7490; font-size: 7.5pt; font-weight: 800; letter-spacing: 1.3px; text-transform: uppercase; }
+.lead { color: #475569; font-size: 10.4pt; }
+.muted { color: #5b687a; }
+.small { font-size: 7.7pt; }
+.tiny { font-size: 7pt; }
+.page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4mm; color: #648096; font-size: 7.2pt; font-weight: 800; letter-spacing: .7px; text-transform: uppercase; }
+.page-head img { width: 9mm; height: 9mm; object-fit: contain; }
+.footer { position: absolute; bottom: 5mm; left: 13mm; right: 13mm; display: flex; justify-content: space-between; border-top: 1px solid #dce5ec; padding-top: 1.5mm; color: #718096; font-size: 6.8pt; }
+.content { padding-bottom: 6mm; }
+.rule { height: 1px; margin: 2.5mm 0; background: #dbe5ed; }
+.tag { display: inline-block; margin: 0 1mm 1mm 0; border: 1px solid #c5eafa; border-radius: 20px; padding: 1mm 2mm; color: #075985; background: #e0f2fe; font-size: 7.3pt; font-weight: 700; }
+.callout { margin: 2mm 0; border-left: 3px solid #0e7490; border-radius: 1.5mm; padding: 2.5mm 3mm; background: #eff8fc; }
+.warn { border-color: #d97706; background: #fff7e8; }
+.danger { border-color: #b91c1c; background: #fff1f2; }
+.good { border-color: #15803d; background: #effaf2; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5mm; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2mm; }
+.card { border: 1px solid #dce5ec; border-radius: 2mm; padding: 2.5mm; background: #fbfdff; }
+.card h3 { margin-top: 0; }
+.module { min-height: 27mm; border-top: 2px solid #0e7490; }
+.module .num { color: #0e7490; font-size: 7.2pt; font-weight: 800; }
+table { width: 100%; margin: 1.5mm 0 2.5mm; border-collapse: collapse; }
+th { padding: 1.5mm 1.8mm; color: #fff; background: #12355b; text-align: left; font-size: 7.2pt; }
+td { padding: 1.35mm 1.8mm; border-bottom: 1px solid #dce5ec; vertical-align: top; font-size: 7.2pt; }
+tr:nth-child(even) td { background: #f5f8fb; }
+.mono, code { color: #153b58; font-family: Consolas, "Courier New", monospace; font-size: 7.5pt; }
+.codeblock { margin: 2mm 0; border-radius: 2mm; padding: 2.5mm 3.5mm; color: #e6f4ff; background: #101c2c; font: 8pt/1.45 Consolas, monospace; white-space: pre-wrap; }
+.diagram { margin: 2mm 0 2.5mm; border: 1px solid #dce5ec; border-radius: 2mm; padding: 1.5mm; background: #fbfdff; }
+.diagram svg { display: block; width: 100%; height: auto; }
+.caption { margin-top: 1mm; color: #627186; text-align: center; font-size: 7pt; }
+.legend { display: flex; flex-wrap: wrap; gap: 3mm; margin: 1mm 0 2mm; color: #52647a; font-size: 7pt; }
+.legend span:before { display: inline-block; width: 3mm; height: 2mm; margin-right: 1mm; border: 1px solid #7a8aa0; content: ""; vertical-align: middle; }
+.legend .legend-actor:before { background: #e8f3ff; border-color: #3b82a0; }
+.legend .legend-process:before { background: #eaf7fb; border-color: #16809a; }
+.legend .legend-data:before { background: #fff5df; border-color: #d58a17; }
+.mock-note { margin: 1mm 0 2mm; color: #73520b; font-size: 7pt; font-style: italic; }
+.cover { padding: 0; color: #fff; background: #071321; }
+.cover-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,13,25,.94) 0%, rgba(4,13,25,.76) 48%, rgba(4,13,25,.28) 100%), linear-gradient(0deg, rgba(4,13,25,.72), transparent 68%); }
+.cover-content { position: absolute; top: 20mm; right: 16mm; bottom: 18mm; left: 17mm; display: flex; flex-direction: column; }
+.cover-logo { width: 31mm; height: 31mm; margin-bottom: 21mm; border: 1px solid rgba(255,255,255,.35); border-radius: 5mm; object-fit: contain; }
+.cover h1 { max-width: 150mm; margin-bottom: 4mm; color: #fff; font-size: 34pt; }
+.cover .lead { max-width: 145mm; color: #d9e8f4; font-size: 14pt; }
+.cover-meta { margin-top: auto; color: #deebf5; font-size: 8.5pt; }
+.cover .tag { border-color: rgba(186,230,253,.3); color: #e0f2fe; background: rgba(14,116,144,.65); }
+.cover-footer { position: absolute; right: 17mm; bottom: 8mm; left: 17mm; border-top: 1px solid rgba(255,255,255,.4); padding-top: 2mm; color: rgba(255,255,255,.72); font-size: 7pt; }
+@media screen { body { background: #d8e0e8; } .page { margin: 8mm auto; box-shadow: 0 2mm 8mm rgba(20,40,60,.18); } }
+</style>
+</head>
+<body>
+
+<section class="page cover">
+  <img class="cover-bg" src="public/workshop-background.jpg" alt="">
+  <div class="cover-shade"></div>
+  <div class="cover-content">
+    <img class="cover-logo" src="public/icon.png" alt="Logo de HIDEP-SOFT-SG">
+    <div class="eyebrow" style="color:#67d8f3">Manual visual del proyecto · Versión 1.0.0</div>
+    <h1>HIDEP-SOFT-SG</h1>
+    <p class="lead">Sistema de gestión para taller de motocicletas</p>
+    <p style="max-width:145mm;color:#e3edf6">Guía funcional y técnica con ejemplos de pantalla, casos de uso, procesos UML, arquitectura, modelo de datos e instrucciones de operación.</p>
+    <div class="cover-meta">
+      <span class="tag">Aplicación de escritorio</span>
+      <span class="tag">Electron · Express · SQLite</span>
+      <span class="tag">Windows</span>
+      <p style="margin-top:5mm">Edición reorganizada · 12 de noviembre de 2026</p>
+    </div>
+  </div>
+  <div class="cover-footer">DOCUMENTACIÓN DEL PROYECTO · HIDEP-SOFT-SG</div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>00 · Cómo leer esta guía</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Índice</div>
+    <h2>Una ruta desde la pantalla hasta los datos</h2>
+    <p class="lead">La guía comienza con la experiencia visual del usuario, continúa con el comportamiento del sistema y termina en su implementación y operación.</p>
+    <table>
+      <thead><tr><th>Pág.</th><th>Contenido</th><th>Representación</th></tr></thead>
+      <tbody>
+        <tr><td>03</td><td>Inicio de sesión y tablero Inicio</td><td>Ilustraciones de interfaz</td></tr>
+        <tr><td>04</td><td>Ejemplo de módulo: Órdenes de Servicio</td><td>Ilustración de pantalla</td></tr>
+        <tr><td>05</td><td>Quién utiliza el sistema y qué puede hacer</td><td>UML · Casos de uso</td></tr>
+        <tr><td>06</td><td>Del registro al cobro de una orden</td><td>UML · Actividad / flujo</td></tr>
+        <tr><td>07</td><td>Solicitud y aprobación de un repuesto</td><td>UML · Secuencia</td></tr>
+        <tr><td>08</td><td>Aplicación, servidor y archivos</td><td>UML · Componentes / despliegue</td></tr>
+        <tr><td>09</td><td>Entidades del taller y relaciones</td><td>UML · Clases / ER</td></tr>
+        <tr><td>10</td><td>Datos guardados, estados y cálculos</td><td>Diccionario de datos</td></tr>
+        <tr><td>11</td><td>Rutas de comunicación del programa</td><td>Catálogo de API</td></tr>
+        <tr><td>12</td><td>Respaldo, restauración y ubicación de datos</td><td>Flujo de operación</td></tr>
+        <tr><td>13</td><td>Archivos, comandos y pruebas</td><td>Mapa técnico</td></tr>
+        <tr><td>14</td><td>Alcance, cuidados y glosario</td><td>Notas finales</td></tr>
+      </tbody>
+    </table>
+    <h3>Convenciones de los gráficos</h3>
+    <div class="legend"><span class="legend-actor">Usuario / actor</span><span class="legend-process">Proceso o pantalla</span><span class="legend-data">Datos, inventario o persistencia</span></div>
+    <p><b>Flecha sólida:</b> paso, llamada o dirección de una relación. <b>Línea punteada:</b> dependencia UML. <b>1 / N:</b> una fila relacionada con varias. Los cuadros de interfaz son ejemplos ilustrativos, no una captura de datos reales.</p>
+    <div class="callout warn"><b>Alcance:</b> se documenta el comportamiento que se observa en los archivos actuales. Las ilustraciones contienen valores ficticios y no representan cifras, placas ni clientes del taller.</div>
+    <div class="callout good"><b>Recomendación de uso:</b> leer las páginas 03–04 para familiarizarse con el programa; consultar los diagramas UML (05–09) para entender cómo se conectan sus partes.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Manual de uso y diseño</span><span>2 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>01 · Recorrido visual</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Pantallas iniciales</div>
+    <h2>Acceso y tablero de Inicio</h2>
+    <p>La primera pantalla es el acceso al taller. Al ingresar, el tablero ofrece métricas rápidas, agenda y accesos directos a las tareas más frecuentes.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 285" role="img" aria-label="Ilustración de la pantalla de inicio de sesión">
+        <defs><linearGradient id="loginbg" x2="1" y2="1"><stop stop-color="#111d31"/><stop offset="1" stop-color="#263d52"/></linearGradient><linearGradient id="loginpanel" x2="0" y2="1"><stop stop-color="#1b2635"/><stop offset="1" stop-color="#101722"/></linearGradient></defs>
+        <rect x="7" y="7" width="746" height="270" rx="12" fill="url(#loginbg)" stroke="#334761" stroke-width="2"/>
+        <circle cx="23" cy="21" r="4" fill="#fb7185"/><circle cx="37" cy="21" r="4" fill="#fbbf24"/><circle cx="51" cy="21" r="4" fill="#34d399"/>
+        <text x="380" y="61" fill="#e5edf7" text-anchor="middle" font-family="Segoe UI,Arial" font-size="21" font-weight="800" letter-spacing="2">HIDEP-SOFT-SG</text>
+        <text x="380" y="79" fill="#9eafc5" text-anchor="middle" font-family="Segoe UI,Arial" font-size="10">TALLER DE MOTOS / GESTIÓN &amp; POS</text>
+        <rect x="245" y="91" width="270" height="166" rx="10" fill="url(#loginpanel)" stroke="#64748b" stroke-width="2"/>
+        <text x="271" y="117" fill="#f59e0b" font-family="Segoe UI,Arial" font-size="17" font-weight="700">Taller de Motos</text>
+        <text x="271" y="135" fill="#94a3b8" font-family="Segoe UI,Arial" font-size="10">Ingresa para comenzar tu jornada de trabajo.</text>
+        <text x="271" y="155" fill="#cbd5e1" font-family="Segoe UI,Arial" font-size="9" font-weight="700">USUARIO</text>
+        <rect x="271" y="160" width="218" height="24" rx="3" fill="#070a0f" stroke="#64748b"/><text x="280" y="176" fill="#64748b" font-family="Segoe UI,Arial" font-size="9">Ingrese su usuario...</text>
+        <text x="271" y="200" fill="#cbd5e1" font-family="Segoe UI,Arial" font-size="9" font-weight="700">CONTRASEÑA</text>
+        <rect x="271" y="205" width="218" height="23" rx="3" fill="#070a0f" stroke="#64748b"/><text x="280" y="220" fill="#64748b" font-family="Segoe UI,Arial" font-size="9">••••••••••</text>
+        <rect x="271" y="234" width="218" height="14" rx="3" fill="#f59e0b"/><text x="380" y="245" fill="#111827" text-anchor="middle" font-family="Segoe UI,Arial" font-size="8" font-weight="800">INGRESAR AL SISTEMA</text>
+      </svg>
+    </div>
+    <p class="caption">Acceso basado en <span class="mono">public\index.html</span>. Los campos del dibujo están vacíos; no contiene credenciales.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 375" role="img" aria-label="Ilustración del módulo Inicio con métricas y agenda">
+        <rect x="5" y="5" width="750" height="365" rx="9" fill="#0b1120" stroke="#334761" stroke-width="2"/>
+        <rect x="5" y="5" width="150" height="365" rx="9" fill="#101827"/>
+        <text x="22" y="32" fill="#38bdf8" font-family="Segoe UI,Arial" font-size="15" font-weight="800">HIDEP-SOFT-SG</text><text x="22" y="47" fill="#9eafc5" font-family="Segoe UI,Arial" font-size="8">TALLER DE MOTOS</text>
+        <g font-family="Segoe UI,Arial" font-size="10">
+          <rect x="15" y="64" width="130" height="27" rx="4" fill="#f59e0b"/><text x="29" y="82" fill="#111827" font-weight="700">▦  Inicio</text>
+          <text x="29" y="111" fill="#dbe7f3">♙  Clientes</text><text x="29" y="138" fill="#dbe7f3">▤  Órdenes</text><text x="29" y="165" fill="#dbe7f3">⬡  Inventario</text>
+          <text x="29" y="192" fill="#dbe7f3">▦  Citas</text><text x="29" y="219" fill="#dbe7f3">▣  Facturación</text><text x="29" y="246" fill="#dbe7f3">⌁  Contabilidad</text><text x="29" y="273" fill="#dbe7f3">☷  Configuración</text>
+        </g>
+        <rect x="155" y="5" width="600" height="45" fill="#172338"/>
+        <text x="174" y="25" fill="#38bdf8" font-family="Segoe UI,Arial" font-size="13" font-weight="800">Sistema de Gestión - Taller de Motos</text>
+        <text x="174" y="39" fill="#9eafc5" font-family="Segoe UI,Arial" font-size="8">Espacio de trabajo / Inicio</text>
+        <text x="682" y="30" fill="#e5edf7" font-family="Segoe UI,Arial" font-size="8">Usuario demo · Salir</text>
+        <text x="173" y="69" fill="#f8fafc" font-family="Segoe UI,Arial" font-size="11" font-weight="700">MÉTRICAS RÁPIDAS</text>
+        <g font-family="Segoe UI,Arial" text-anchor="middle">
+          <rect x="171" y="77" width="125" height="53" rx="5" fill="#0c1525" stroke="#334761"/><text x="233" y="97" fill="#9eafc5" font-size="8">ÓRDENES ACTIVAS</text><text x="233" y="119" fill="#e5edf7" font-size="18" font-weight="800">4</text>
+          <rect x="303" y="77" width="125" height="53" rx="5" fill="#0c1525" stroke="#334761"/><text x="365" y="97" fill="#9eafc5" font-size="8">CITAS HOY</text><text x="365" y="119" fill="#e5edf7" font-size="18" font-weight="800">3</text>
+          <rect x="435" y="77" width="125" height="53" rx="5" fill="#0c1525" stroke="#334761"/><text x="497" y="97" fill="#9eafc5" font-size="8">MECÁNICOS</text><text x="497" y="119" fill="#e5edf7" font-size="18" font-weight="800">2</text>
+          <rect x="567" y="77" width="172" height="53" rx="5" fill="#0c1525" stroke="#334761"/><text x="653" y="97" fill="#9eafc5" font-size="8">INGRESOS MES</text><text x="653" y="119" fill="#34d399" font-size="16" font-weight="800">$ 1.250.000</text>
+        </g>
+        <rect x="171" y="142" width="365" height="123" rx="6" fill="#172338" stroke="#334761"/>
+        <text x="186" y="162" fill="#f8fafc" font-family="Segoe UI,Arial" font-size="10" font-weight="700">⚡ ACCIONES RÁPIDAS</text>
+        <g font-family="Segoe UI,Arial" text-anchor="middle" font-size="8" fill="#e5edf7">
+          <rect x="185" y="174" width="76" height="68" rx="5" fill="#111b2d" stroke="#475569"/><text x="223" y="201" fill="#f59e0b" font-size="16">＋</text><text x="223" y="222">Nueva orden</text>
+          <rect x="271" y="174" width="76" height="68" rx="5" fill="#111b2d" stroke="#475569"/><text x="309" y="201" fill="#38bdf8" font-size="15">♙</text><text x="309" y="222">Registrar cliente</text>
+          <rect x="357" y="174" width="76" height="68" rx="5" fill="#111b2d" stroke="#475569"/><text x="395" y="201" fill="#38bdf8" font-size="15">▦</text><text x="395" y="222">Inventario</text>
+          <rect x="443" y="174" width="76" height="68" rx="5" fill="#111b2d" stroke="#475569"/><text x="481" y="201" fill="#34d399" font-size="15">$</text><text x="481" y="222">Generar factura</text>
+        </g>
+        <rect x="548" y="142" width="191" height="123" rx="6" fill="#172338" stroke="#334761"/>
+        <text x="562" y="162" fill="#f8fafc" font-family="Segoe UI,Arial" font-size="10" font-weight="700">📅 AGENDA Y CITAS</text>
+        <g font-family="Segoe UI,Arial" font-size="8"><rect x="560" y="172" width="167" height="33" rx="4" fill="#0c1525" stroke="#293a52"/><text x="570" y="186" fill="#38bdf8">08:30 · Revisión general</text><text x="570" y="198" fill="#9eafc5">Moto de ejemplo</text><rect x="560" y="212" width="167" height="33" rx="4" fill="#0c1525" stroke="#293a52"/><text x="570" y="226" fill="#38bdf8">10:00 · Cambio de aceite</text><text x="570" y="238" fill="#9eafc5">Moto de demostración</text></g>
+        <rect x="171" y="277" width="568" height="76" rx="6" fill="#172338" stroke="#334761"/>
+        <text x="186" y="298" fill="#f8fafc" font-family="Segoe UI,Arial" font-size="10" font-weight="700">ÓRDENES EN PROCESO</text>
+        <g font-family="Segoe UI,Arial" font-size="8" fill="#dbe7f3"><text x="188" y="319" fill="#9eafc5">MOTOCICLETA</text><text x="375" y="319" fill="#9eafc5">TIPO</text><text x="505" y="319" fill="#9eafc5">ESTADO</text><text x="188" y="339">Moto demo 150 cc</text><text x="375" y="339">Preventivo</text><text x="505" y="339" fill="#fbbf24">En proceso</text></g>
+      </svg>
+    </div>
+    <p class="mock-note">Ilustración del módulo Inicio basada en la estructura de <span class="mono">public\dashboard.html</span>. Cifras, usuarios y citas son datos inventados para enseñar la pantalla.</p>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Recorrido por la interfaz</span><span>3 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>02 · Ejemplo de módulo</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Órdenes de servicio</div>
+    <h2>Una orden organiza el trabajo de la moto</h2>
+    <p>La pantalla permite buscar órdenes, elegir una moto y un mecánico, definir el tipo de mantenimiento y dejar el motivo de ingreso. Las acciones posteriores registran el avance, la mano de obra y los repuestos.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 395" role="img" aria-label="Ilustración referencial del módulo de órdenes">
+        <rect x="5" y="5" width="750" height="385" rx="9" fill="#0b1120" stroke="#334761" stroke-width="2"/>
+        <rect x="5" y="5" width="145" height="385" rx="9" fill="#101827"/>
+        <text x="21" y="32" fill="#38bdf8" font-family="Segoe UI,Arial" font-size="14" font-weight="800">HIDEP-SOFT-SG</text>
+        <g font-family="Segoe UI,Arial" font-size="9" fill="#dbe7f3"><text x="25" y="72">▦  Inicio</text><text x="25" y="101">♙  Clientes</text><rect x="15" y="111" width="125" height="28" rx="4" fill="#f59e0b"/><text x="25" y="130" fill="#111827" font-weight="700">▤  Órdenes</text><text x="25" y="160">⬡  Inventario</text><text x="25" y="189">▦  Citas</text><text x="25" y="218">▣  Facturación</text><text x="25" y="247">⌁  Contabilidad</text><text x="25" y="276">☷  Configuración</text></g>
+        <rect x="150" y="5" width="605" height="45" fill="#172338"/><text x="170" y="28" fill="#e5edf7" font-family="Segoe UI,Arial" font-size="12" font-weight="700">Sistema de Gestión - Taller de Motos</text>
+        <text x="171" y="72" fill="#38bdf8" font-family="Segoe UI,Arial" font-size="15" font-weight="800">Órdenes de Servicio</text>
+        <text x="171" y="91" fill="#9eafc5" font-family="Segoe UI,Arial" font-size="8">Buscar orden abierta por número, placa o cliente</text>
+        <rect x="171" y="98" width="425" height="29" rx="4" fill="#0c1525" stroke="#475569"/><text x="183" y="117" fill="#73859b" font-family="Segoe UI,Arial" font-size="9">Buscar por orden, placa o nombre...</text>
+        <rect x="605" y="98" width="84" height="29" rx="4" fill="#38bdf8"/><text x="647" y="117" fill="#071321" text-anchor="middle" font-family="Segoe UI,Arial" font-size="9" font-weight="800">BUSCAR</text>
+        <text x="171" y="152" fill="#f8fafc" font-family="Segoe UI,Arial" font-size="11" font-weight="700">ÓRDENES ABIERTAS</text>
+        <rect x="171" y="161" width="568" height="111" rx="5" fill="#101a2b" stroke="#334761"/>
+        <rect x="172" y="162" width="566" height="25" fill="#070a0f"/>
+        <g font-family="Segoe UI,Arial" font-size="8" fill="#38bdf8" font-weight="700"><text x="183" y="178">ID</text><text x="223" y="178">MOTO / CLIENTE</text><text x="361" y="178">TIPO</text><text x="452" y="178">MECÁNICO</text><text x="557" y="178">ESTADO</text></g>
+        <g font-family="Segoe UI,Arial" font-size="8" fill="#e5edf7"><text x="183" y="207">104</text><text x="223" y="207">Moto demo 150 cc</text><text x="361" y="207">Correctivo</text><text x="452" y="207">Mecánico demo</text><text x="557" y="207" fill="#fbbf24">En proceso</text><text x="183" y="237">103</text><text x="223" y="237">Motocicleta ejemplo</text><text x="361" y="237">Preventivo</text><text x="452" y="237">Mecánico demo</text><text x="557" y="237" fill="#34d399">Lista para cobro</text></g>
+        <text x="171" y="297" fill="#f8fafc" font-family="Segoe UI,Arial" font-size="11" font-weight="700">CREAR ORDEN DE SERVICIO</text>
+        <g font-family="Segoe UI,Arial" font-size="8">
+          <text x="173" y="318" fill="#9eafc5">MOTO</text><rect x="171" y="324" width="160" height="25" rx="3" fill="#0c1525" stroke="#475569"/><text x="181" y="340" fill="#dbe7f3">Seleccione moto...</text>
+          <text x="342" y="318" fill="#9eafc5">MECÁNICO ASIGNADO</text><rect x="342" y="324" width="158" height="25" rx="3" fill="#0c1525" stroke="#475569"/><text x="352" y="340" fill="#dbe7f3">Seleccione mecánico...</text>
+          <text x="511" y="318" fill="#9eafc5">TIPO</text><rect x="511" y="324" width="98" height="25" rx="3" fill="#0c1525" stroke="#475569"/><text x="521" y="340" fill="#dbe7f3">Preventivo</text>
+          <text x="618" y="318" fill="#9eafc5">MANO DE OBRA</text><rect x="618" y="324" width="121" height="25" rx="3" fill="#0c1525" stroke="#475569"/><text x="628" y="340" fill="#dbe7f3">$ 0</text>
+        </g>
+        <text x="173" y="366" fill="#9eafc5" font-family="Segoe UI,Arial" font-size="8">MOTIVO DE INGRESO / DIAGNÓSTICO</text><rect x="330" y="354" width="278" height="24" rx="3" fill="#0c1525" stroke="#475569"/><text x="341" y="370" fill="#73859b" font-family="Segoe UI,Arial" font-size="8">Descripción del problema...</text><rect x="618" y="354" width="121" height="24" rx="3" fill="#f59e0b"/><text x="678" y="370" fill="#111827" text-anchor="middle" font-family="Segoe UI,Arial" font-size="8" font-weight="800">CREAR ORDEN</text>
+      </svg>
+    </div>
+    <p class="mock-note">Vista de ejemplo: filas y nombres son ficticios. La pantalla real puede cambiar según permisos, datos registrados y tamaño de ventana.</p>
+    <h3>Etapas de una orden</h3>
+    <div class="grid3">
+      <div class="card"><h3>1 · Registrar</h3><p>Asociar moto, mecánico, tipo y motivo.</p></div>
+      <div class="card"><h3>2 · Atender</h3><p>Describir trabajo y pedir piezas. La aprobación descuenta inventario.</p></div>
+      <div class="card"><h3>3 · Cobrar</h3><p>Revisar el total y marcar como facturada.</p></div>
+    </div>
+    <div class="callout"><b>Regla de inventario:</b> la solicitud del mecánico no descuenta existencias hasta que recepción la aprueba.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Ejemplo visual del módulo Órdenes</span><span>4 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>03 · Requisitos funcionales</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">UML · Casos de uso</div>
+    <h2>Quién usa el sistema y para qué</h2>
+    <p>El diagrama identifica los perfiles funcionales descritos en el panel y sus tareas principales. Los nombres de los actores representan la organización del trabajo, no una sesión de red multiusuario.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 550" role="img" aria-label="Diagrama UML de casos de uso">
+        <rect x="180" y="25" width="555" height="500" rx="8" fill="#f8fbff" stroke="#3b82a0" stroke-width="2"/>
+        <text x="457" y="48" text-anchor="middle" fill="#12355b" font-family="Segoe UI,Arial" font-size="15" font-weight="700">HIDEP-SOFT-SG · Sistema de gestión del taller</text>
+        <g stroke="#6b7b8e" stroke-width="1.5" fill="none">
+          <path d="M105 145L278 110"/><path d="M105 145L278 190"/><path d="M105 145L278 270"/>
+          <path d="M105 145L517 190"/><path d="M105 145L517 270"/><path d="M105 145L517 350"/>
+          <path d="M105 300L517 110"/><path d="M105 300L278 350"/><path d="M105 300L278 430"/>
+          <path d="M105 455L517 350"/><path d="M105 455L517 430"/>
+        </g>
+        <g fill="#eaf7fb" stroke="#16809a" stroke-width="2">
+          <ellipse cx="360" cy="110" rx="82" ry="24"/><ellipse cx="360" cy="190" rx="82" ry="24"/>
+          <ellipse cx="360" cy="270" rx="82" ry="24"/><ellipse cx="360" cy="350" rx="82" ry="24"/>
+          <ellipse cx="360" cy="430" rx="82" ry="24"/>
+          <ellipse cx="605" cy="110" rx="88" ry="24"/><ellipse cx="605" cy="190" rx="88" ry="24"/>
+          <ellipse cx="605" cy="270" rx="88" ry="24"/><ellipse cx="605" cy="350" rx="88" ry="24"/>
+          <ellipse cx="605" cy="430" rx="88" ry="24"/>
+        </g>
+        <g fill="#12355b" font-family="Segoe UI,Arial" font-size="11" text-anchor="middle">
+          <text x="360" y="114">Registrar cliente y moto</text><text x="360" y="194">Agendar cita</text><text x="360" y="274">Crear / asignar orden</text><text x="360" y="354">Solicitar repuesto</text><text x="360" y="434">Reportar trabajo</text>
+          <text x="605" y="114">Consultar orden / historial</text><text x="605" y="194">Consultar cita / agenda</text><text x="605" y="274">Aprobar solicitud de pieza</text><text x="605" y="354">Facturar orden</text><text x="605" y="434">Administrar usuarios / reportes</text>
+        </g>
+        <g stroke="#12355b" stroke-width="3" fill="none" stroke-linecap="round">
+          <circle cx="70" cy="88" r="15"/><path d="M70 103v48M43 120h54M70 151l-21 34M70 151l21 34"/>
+          <circle cx="70" cy="243" r="15"/><path d="M70 258v48M43 275h54M70 306l-21 34M70 306l21 34"/>
+          <circle cx="70" cy="398" r="15"/><path d="M70 413v48M43 430h54M70 461l-21 34M70 461l21 34"/>
+        </g>
+        <g fill="#12355b" font-family="Segoe UI,Arial" font-size="10" text-anchor="middle" font-weight="700">
+          <text x="70" y="202">Recepción</text><text x="70" y="357">Mecánico</text><text x="70" y="512">Administrador</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend"><span class="legend-actor">Actor</span><span class="legend-process">Caso de uso</span></div>
+    <p class="small"><b>Lectura:</b> las líneas conectan un perfil con una tarea. Al aprobar una pieza, el sistema valida el stock y registra el movimiento asociado a la orden.</p>
+    <div class="callout warn"><b>Alcance real:</b> los permisos se usan para organizar lo que muestra la interfaz. El backend actual escucha solo en el equipo local; antes de convertirlo en servicio de red se deben validar permisos en cada endpoint.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · UML de casos de uso</span><span>5 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>04 · Proceso del negocio</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">UML · Diagrama de actividad</div>
+    <h2>Flujo de una orden desde recepción hasta caja</h2>
+    <p>El flujo incorpora el desvío opcional de repuestos: si se necesitan, el mecánico envía una solicitud y recepción decide si puede atenderse según el stock.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 740" role="img" aria-label="Diagrama UML de actividad de una orden">
+        <defs><marker id="actArrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#53677e"/></marker></defs>
+        <rect x="5" y="5" width="750" height="725" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+        <g stroke="#53677e" stroke-width="2" fill="none" marker-end="url(#actArrow)">
+          <path d="M380 48v20"/><path d="M380 112v17"/><path d="M380 177v17"/><path d="M380 242v16"/><path d="M380 302v20"/>
+          <path d="M335 347H180v38"/><path d="M425 347h155v38"/>
+          <path d="M180 435v100h95v25"/><path d="M580 435v25"/><path d="M580 520v15h-95v50"/>
+          <path d="M380 612v23"/><path d="M380 683v13"/>
+        </g>
+        <g fill="#eaf7fb" stroke="#16809a" stroke-width="2">
+          <rect x="230" y="68" width="300" height="44" rx="13"/><rect x="230" y="129" width="300" height="48" rx="13"/>
+          <rect x="230" y="194" width="300" height="48" rx="13"/><rect x="230" y="258" width="300" height="44" rx="13"/>
+          <rect x="45" y="385" width="270" height="50" rx="13"/><rect x="445" y="385" width="270" height="50" rx="13"/>
+          <rect x="445" y="460" width="270" height="60" rx="13"/><rect x="230" y="560" width="300" height="52" rx="13"/>
+          <rect x="230" y="635" width="300" height="48" rx="13"/>
+        </g>
+        <g fill="#12355b" font-family="Segoe UI,Arial" font-size="12" text-anchor="middle">
+          <text x="380" y="96"><tspan font-weight="800">RECEPCIÓN</tspan><tspan> · localizar cliente y moto</tspan></text>
+          <text x="380" y="149"><tspan x="380" font-weight="800">RECEPCIÓN</tspan><tspan x="380" dy="16">crear orden y asignar mecánico</tspan></text>
+          <text x="380" y="214"><tspan x="380" font-weight="800">SISTEMA</tspan><tspan> · guardar “En proceso”</tspan></text>
+          <text x="380" y="277"><tspan font-weight="800">MECÁNICO</tspan><tspan> · diagnosticar y trabajar</tspan></text>
+          <text x="180" y="405"><tspan x="180" font-weight="800">NO</tspan><tspan x="180" dy="16">continuar sin repuesto</tspan></text>
+          <text x="580" y="405"><tspan x="580" font-weight="800">SÍ</tspan><tspan x="580" dy="16">mecánico solicita pieza</tspan></text>
+          <text x="580" y="482"><tspan x="580" font-weight="800">RECEPCIÓN / SISTEMA</tspan><tspan x="580" dy="17">aprobar, validar stock</tspan><tspan x="580" dy="16">y agregar detalle a la orden</tspan></text>
+          <text x="380" y="582"><tspan x="380" font-weight="800">MECÁNICO</tspan><tspan x="380" dy="16">completar y reportar el trabajo</tspan></text>
+          <text x="380" y="655"><tspan x="380" font-weight="800">RECEPCIÓN / SISTEMA</tspan><tspan x="380" dy="16">revisar cobro y marcar “Facturada”</tspan></text>
+        </g>
+        <circle cx="380" cy="40" r="8" fill="#172338"/>
+        <circle cx="380" cy="709" r="13" fill="#fff" stroke="#172338" stroke-width="3"/><circle cx="380" cy="709" r="8" fill="#172338"/>
+        <path d="M380 322l45 25-45 25-45-25z" fill="#fff7e8" stroke="#d97706" stroke-width="2"/>
+        <text x="380" y="351" text-anchor="middle" fill="#73520b" font-family="Segoe UI,Arial" font-size="10" font-weight="700">¿REQUIERE PIEZA?</text>
+        <text x="380" y="730" text-anchor="middle" fill="#627186" font-family="Segoe UI,Arial" font-size="9">Si no hay existencias, el servidor devuelve un error y no descuenta el inventario.</text>
+      </svg>
+    </div>
+    <p class="caption">El sistema permite guardar una solicitud pendiente; la aprobación verifica unidades disponibles antes de descontar inventario y agregar el repuesto a la cuenta.</p>
+    <div class="callout warn"><b>Nota de lectura:</b> los nombres al inicio de cada actividad identifican quién la realiza. El rombo es una decisión; el círculo inicial y el círculo doble final indican comienzo y cierre del proceso.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · UML de actividad</span><span>6 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>05 · Interacción técnica</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">UML · Diagrama de secuencia</div>
+    <h2>Qué ocurre al solicitar y aprobar una pieza</h2>
+    <p>Este ejemplo sigue la operación real del servidor: primero se crea una solicitud pendiente; al aprobarla, el backend valida y guarda el movimiento de inventario y el detalle de la orden dentro de una transacción.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 600" role="img" aria-label="Diagrama UML de secuencia de solicitud de repuesto">
+        <defs><marker id="seqArrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#35516c"/></marker><marker id="seqReturn" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7c8ba0"/></marker></defs>
+        <g font-family="Segoe UI,Arial" text-anchor="middle" fill="#12355b">
+          <rect x="25" y="15" width="135" height="48" rx="7" fill="#e8f3ff" stroke="#3b82a0" stroke-width="2"/><text x="92" y="36" font-size="12" font-weight="700">Mecánico</text><text x="92" y="52" font-size="10">Panel Órdenes</text>
+          <rect x="220" y="15" width="140" height="48" rx="7" fill="#eaf7fb" stroke="#16809a" stroke-width="2"/><text x="290" y="36" font-size="12" font-weight="700">Servidor</text><text x="290" y="52" font-size="10">Express API</text>
+          <rect x="420" y="15" width="135" height="48" rx="7" fill="#fff5df" stroke="#d58a17" stroke-width="2"/><text x="487" y="36" font-size="12" font-weight="700">SQLite</text><text x="487" y="52" font-size="10">database.db</text>
+          <rect x="610" y="15" width="135" height="48" rx="7" fill="#e8f3ff" stroke="#3b82a0" stroke-width="2"/><text x="677" y="36" font-size="12" font-weight="700">Recepción</text><text x="677" y="52" font-size="10">Panel Configuración</text>
+        </g>
+        <g stroke="#9aa9b9" stroke-width="1.3" stroke-dasharray="5 5"><path d="M92 63v512"/><path d="M290 63v512"/><path d="M487 63v512"/><path d="M677 63v512"/></g>
+        <g stroke="#35516c" stroke-width="2" fill="none" marker-end="url(#seqArrow)">
+          <path d="M92 95h198"/><path d="M290 143h197"/><path d="M487 191h-197"/><path d="M290 232h197"/>
+          <path d="M677 280h-387"/><path d="M290 328h197"/><path d="M487 376h197"/><path d="M677 415h-387"/>
+          <path d="M290 459h197"/><path d="M487 503h-197"/><path d="M290 546h387"/>
+        </g>
+        <g stroke="#7c8ba0" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#seqReturn)">
+          <path d="M487 166h-197"/><path d="M487 256h-197"/><path d="M487 350h-197"/><path d="M487 526h-197"/>
+        </g>
+        <g fill="#172338" font-family="Segoe UI,Arial" font-size="10">
+          <text x="140" y="88">POST /api/ordenes/:id/solicitudes-repuestos</text>
+          <text x="335" y="136">Validar orden abierta y repuesto</text>
+          <text x="324" y="184">INSERT solicitud · estado Solicitado</text>
+          <text x="335" y="225">201 / success · solicitud pendiente</text>
+          <text x="398" y="273">GET /api/solicitudes-repuestos</text>
+          <text x="329" y="321">POST /api/solicitudes-repuestos/:id/aprobar</text>
+          <text x="532" y="369">BEGIN · buscar solicitud y stock</text>
+          <text x="354" y="408">Datos pendientes / validar</text>
+          <text x="332" y="452">UPDATE stock · INSERT detalle</text>
+          <text x="337" y="496">UPDATE solicitud · COMMIT</text>
+          <text x="340" y="539">200 OK · repuesto aprobado y agregado a la cuenta</text>
+        </g>
+        <rect x="410" y="386" width="154" height="126" rx="5" fill="none" stroke="#d97706" stroke-dasharray="6 4"/>
+        <text x="568" y="403" fill="#9a5b08" font-family="Segoe UI,Arial" font-size="9">Transacción de aprobación</text>
+        <text x="380" y="582" text-anchor="middle" fill="#627186" font-family="Segoe UI,Arial" font-size="10">Si falla la validación del stock, la operación se revierte y la solicitud no se factura.</text>
+      </svg>
+    </div>
+    <div class="legend"><span class="legend-actor">Pantalla / usuario</span><span class="legend-process">API</span><span class="legend-data">Base de datos</span></div>
+    <div class="callout"><b>Rutas clave:</b> <span class="mono">POST /api/ordenes/:id/solicitudes-repuestos</span>, <span class="mono">GET /api/solicitudes-repuestos</span> y <span class="mono">POST /api/solicitudes-repuestos/:id/aprobar</span>.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · UML de secuencia</span><span>7 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>06 · Organización técnica</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">UML · Componentes y despliegue</div>
+    <h2>Del escritorio a la base de datos</h2>
+    <p>La aplicación agrupa la interfaz en Electron, sirve archivos estáticos con Express y persiste la información en SQLite. El servidor escucha en la interfaz de red local del propio equipo.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 485" role="img" aria-label="Diagrama UML de componentes y despliegue">
+        <defs><marker id="cmpArrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#16809a"/></marker></defs>
+        <rect x="12" y="12" width="736" height="458" rx="12" fill="#f8fbff" stroke="#3b82a0" stroke-width="2"/>
+        <text x="380" y="37" fill="#12355b" font-family="Segoe UI,Arial" font-size="14" font-weight="800" text-anchor="middle">Equipo Windows · proceso local</text>
+        <rect x="35" y="58" width="690" height="150" rx="10" fill="#e8f3ff" stroke="#3b82a0" stroke-width="2"/>
+        <text x="54" y="81" fill="#12355b" font-family="Segoe UI,Arial" font-size="12" font-weight="700">Electron · main.js</text>
+        <rect x="58" y="99" width="260" height="88" rx="8" fill="#fff" stroke="#16809a" stroke-width="2"/>
+        <text x="188" y="124" text-anchor="middle" fill="#12355b" font-family="Segoe UI,Arial" font-size="13" font-weight="700">Ventana de escritorio</text>
+        <text x="188" y="148" text-anchor="middle" fill="#52647a" font-family="Segoe UI,Arial" font-size="11">index.html · dashboard.html</text><text x="188" y="166" text-anchor="middle" fill="#52647a" font-family="Segoe UI,Arial" font-size="11">mobile.html · imágenes</text>
+        <rect x="445" y="99" width="250" height="88" rx="8" fill="#fff" stroke="#16809a" stroke-width="2"/>
+        <text x="570" y="124" text-anchor="middle" fill="#12355b" font-family="Segoe UI,Arial" font-size="13" font-weight="700">Ciclo de aplicación</text>
+        <text x="570" y="148" text-anchor="middle" fill="#52647a" font-family="Segoe UI,Arial" font-size="11">espera /api/health</text><text x="570" y="166" text-anchor="middle" fill="#52647a" font-family="Segoe UI,Arial" font-size="11">diálogo de respaldo al cerrar</text>
+        <rect x="165" y="267" width="430" height="96" rx="10" fill="#eaf7fb" stroke="#16809a" stroke-width="2"/>
+        <text x="380" y="292" text-anchor="middle" fill="#12355b" font-family="Segoe UI,Arial" font-size="14" font-weight="800">Servidor HTTP local · server.js</text>
+        <text x="380" y="315" text-anchor="middle" fill="#52647a" font-family="Segoe UI,Arial" font-size="11">Express · API /api/* · puerto 3000</text><text x="380" y="338" text-anchor="middle" fill="#52647a" font-family="Segoe UI,Arial" font-size="11">127.0.0.1 · JSON · reglas de operación</text>
+        <rect x="42" y="407" width="270" height="45" rx="8" fill="#fff5df" stroke="#d58a17" stroke-width="2"/>
+        <text x="177" y="427" text-anchor="middle" fill="#80520b" font-family="Segoe UI,Arial" font-size="12" font-weight="700">SQLite · database.db</text><text x="177" y="443" text-anchor="middle" fill="#80520b" font-family="Segoe UI,Arial" font-size="10">base activa en modo desarrollo</text>
+        <rect x="448" y="407" width="270" height="45" rx="8" fill="#f3efff" stroke="#765ab1" stroke-width="2"/>
+        <text x="583" y="427" text-anchor="middle" fill="#4c3a75" font-family="Segoe UI,Arial" font-size="12" font-weight="700">Carpeta de datos / respaldos</text><text x="583" y="443" text-anchor="middle" fill="#4c3a75" font-family="Segoe UI,Arial" font-size="10">AppData empaquetado · ruta elegida</text>
+        <g stroke="#16809a" stroke-width="2.5" fill="none" marker-end="url(#cmpArrow)">
+          <path d="M188 208v38"/><path d="M380 363v36"/><path d="M420 363l140 36"/><path d="M318 145h115"/>
+        </g>
+        <text x="198" y="235" fill="#52647a" font-family="Segoe UI,Arial" font-size="9">HTTP local</text>
+        <text x="390" y="389" fill="#52647a" font-family="Segoe UI,Arial" font-size="9">SQL</text>
+        <text x="490" y="387" fill="#52647a" font-family="Segoe UI,Arial" font-size="9">copias / restauración</text>
+        <text x="380" y="461" text-anchor="middle" fill="#627186" font-family="Segoe UI,Arial" font-size="9">Producción: Electron usa su directorio userData bajo AppData y copia la plantilla si aún no hay base.</text>
+      </svg>
+    </div>
+    <h3>Responsabilidad por archivo</h3>
+    <table>
+      <thead><tr><th>Archivo</th><th>Responsabilidad observada</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">main.js</td><td>Ventana, proceso Electron, chequeo del servidor y diálogos de respaldo.</td></tr>
+        <tr><td class="mono">server.js</td><td>API Express, esquema activo, reglas de negocio, lectura y escritura SQLite.</td></tr>
+        <tr><td class="mono">public\*.html</td><td>Inicio de sesión, tablero, panel móvil e interacción del usuario.</td></tr>
+      </tbody>
+    </table>
+    <div class="callout warn"><b>Nota:</b> <span class="mono">database.js</span> es una implementación anterior que abre <span class="mono">taller.db</span>; el arranque definido usa <span class="mono">main.js</span> y <span class="mono">server.js</span>.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · UML de componentes y despliegue</span><span>8 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>07 · Entidades del negocio</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">UML · Clases / modelo entidad-relación</div>
+    <h2>Cómo se conectan los registros</h2>
+    <p>El modelo resume las tablas que usa el servidor activo. La multiplicidad <span class="mono">1</span> a <span class="mono">0..*</span> significa que una entidad puede relacionarse con cero o muchos registros dependientes.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 760 575" role="img" aria-label="Diagrama UML de clases y relaciones de la base">
+        <defs><marker id="erArrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#64748b"/></marker></defs>
+        <g stroke="#64748b" stroke-width="1.7" fill="none" marker-end="url(#erArrow)">
+          <path d="M205 100h55"/><path d="M430 100h58"/>
+          <path d="M205 318H225V210H470V170H488"/>
+          <path d="M550 190v40H346v38"/>
+          <path d="M433 318h52"/>
+        </g>
+        <g fill="#64748b" font-family="Segoe UI,Arial" font-size="9">
+          <text x="215" y="92">1 ─ 0..*</text><text x="437" y="92">1 ─ 0..*</text>
+          <text x="415" y="205">1 ─ 0..*</text><text x="350" y="250">1 ─ 0..*</text>
+          <text x="440" y="310">0..* ─ 1</text>
+        </g>
+        <g font-family="Segoe UI,Arial">
+          <g><rect x="15" y="35" width="190" height="155" rx="5" fill="#fff" stroke="#3b82a0" stroke-width="2"/><rect x="15" y="35" width="190" height="29" rx="5" fill="#e8f3ff"/><text x="110" y="54" text-anchor="middle" fill="#12355b" font-size="13" font-weight="700">Cliente</text><text x="27" y="82" fill="#334155" font-size="10">PK id</text><text x="27" y="101" fill="#334155" font-size="10">cédula · nombre</text><text x="27" y="120" fill="#334155" font-size="10">teléfono · dirección</text><line x1="15" y1="70" x2="205" y2="70" stroke="#cbd5e1"/></g>
+          <g><rect x="260" y="35" width="170" height="155" rx="5" fill="#fff" stroke="#3b82a0" stroke-width="2"/><rect x="260" y="35" width="170" height="29" rx="5" fill="#e8f3ff"/><text x="345" y="54" text-anchor="middle" fill="#12355b" font-size="13" font-weight="700">Motocicleta</text><line x1="260" y1="70" x2="430" y2="70" stroke="#cbd5e1"/><text x="272" y="88" fill="#334155" font-size="10">PK id · FK cliente_id</text><text x="272" y="107" fill="#334155" font-size="10">placa · marca · modelo</text><text x="272" y="126" fill="#334155" font-size="10">cilindraje · color · km</text></g>
+          <g><rect x="488" y="35" width="255" height="155" rx="5" fill="#fff" stroke="#16809a" stroke-width="2"/><rect x="488" y="35" width="255" height="29" rx="5" fill="#eaf7fb"/><text x="615" y="54" text-anchor="middle" fill="#12355b" font-size="13" font-weight="700">Orden</text><line x1="488" y1="70" x2="743" y2="70" stroke="#cbd5e1"/><text x="500" y="88" fill="#334155" font-size="10">PK id · FK moto_id / mecanico_id</text><text x="500" y="107" fill="#334155" font-size="10">tipo · motivo · estado · fecha</text><text x="500" y="126" fill="#334155" font-size="10">mano de obra · trabajo realizado</text></g>
+          <g><rect x="15" y="268" width="190" height="100" rx="5" fill="#fff" stroke="#765ab1" stroke-width="2"/><rect x="15" y="268" width="190" height="28" rx="5" fill="#f3efff"/><text x="110" y="287" text-anchor="middle" fill="#4c3a75" font-size="13" font-weight="700">Usuario</text><line x1="15" y1="296" x2="205" y2="296" stroke="#cbd5e1"/><text x="27" y="315" fill="#334155" font-size="10">PK id · usuario · rol</text><text x="27" y="334" fill="#334155" font-size="10">hash · permisos · recuperación</text></g>
+          <g><rect x="260" y="268" width="173" height="100" rx="5" fill="#fff" stroke="#d58a17" stroke-width="2"/><rect x="260" y="268" width="173" height="28" rx="5" fill="#fff5df"/><text x="346" y="287" text-anchor="middle" fill="#80520b" font-size="12" font-weight="700">Solicitud de repuesto</text><line x1="260" y1="296" x2="433" y2="296" stroke="#cbd5e1"/><text x="272" y="315" fill="#334155" font-size="10">FK orden_id / repuesto_id</text><text x="272" y="334" fill="#334155" font-size="10">cantidad · estado · fechas</text></g>
+          <g><rect x="485" y="268" width="190" height="100" rx="5" fill="#fff" stroke="#d58a17" stroke-width="2"/><rect x="485" y="268" width="190" height="28" rx="5" fill="#fff5df"/><text x="580" y="287" text-anchor="middle" fill="#80520b" font-size="13" font-weight="700">Repuesto / Inventario</text><line x1="485" y1="296" x2="675" y2="296" stroke="#cbd5e1"/><text x="497" y="315" fill="#334155" font-size="10">PK id · código · nombre</text><text x="497" y="334" fill="#334155" font-size="10">stock · costo · precio venta</text></g>
+          <g><rect x="260" y="435" width="173" height="98" rx="5" fill="#fff" stroke="#d58a17" stroke-width="2"/><rect x="260" y="435" width="173" height="28" rx="5" fill="#fff5df"/><text x="346" y="454" text-anchor="middle" fill="#80520b" font-size="11.5" font-weight="700">Detalle de repuesto</text><line x1="260" y1="463" x2="433" y2="463" stroke="#cbd5e1"/><text x="272" y="482" fill="#334155" font-size="10">FK orden_id / repuesto_id</text><text x="272" y="501" fill="#334155" font-size="10">cantidad · precio_unitario</text></g>
+          <g><rect x="15" y="435" width="190" height="98" rx="5" fill="#fff" stroke="#738095" stroke-width="2"/><rect x="15" y="435" width="190" height="28" rx="5" fill="#f1f5f9"/><text x="110" y="454" text-anchor="middle" fill="#334155" font-size="13" font-weight="700">Cita</text><line x1="15" y1="463" x2="205" y2="463" stroke="#cbd5e1"/><text x="27" y="482" fill="#334155" font-size="10">cliente / placa como texto</text><text x="27" y="501" fill="#334155" font-size="10">fecha · hora · motivo · estado</text></g>
+          <g><rect x="485" y="435" width="190" height="98" rx="5" fill="#fff" stroke="#738095" stroke-width="2"/><rect x="485" y="435" width="190" height="28" rx="5" fill="#f1f5f9"/><text x="580" y="454" text-anchor="middle" fill="#334155" font-size="13" font-weight="700">Configuración</text><line x1="485" y1="463" x2="675" y2="463" stroke="#cbd5e1"/><text x="497" y="482" fill="#334155" font-size="10">taller · tema · impresora</text><text x="497" y="501" fill="#334155" font-size="10">ruta backup · tarifas</text></g>
+        </g>
+        <path d="M730 150H750V420H346V435" stroke="#64748b" stroke-width="1.7" fill="none" marker-end="url(#erArrow)"/>
+        <path d="M433 484H455V385H580V368" stroke="#64748b" stroke-width="1.7" fill="none" marker-end="url(#erArrow)"/>
+        <text x="715" y="405" fill="#64748b" font-family="Segoe UI,Arial" font-size="8">1 ─ 0..*</text>
+        <text x="450" y="380" fill="#64748b" font-family="Segoe UI,Arial" font-size="8">0..* ─ 1</text>
+        <text x="380" y="558" text-anchor="middle" fill="#627186" font-family="Segoe UI,Arial" font-size="10">Citas y configuración no tienen una relación directa de clave foránea con clientes o motos.</text>
+      </svg>
+    </div>
+    <div class="callout warn"><b>Compatibilidad heredada:</b> al restaurar, el servidor tolera que la tabla de órdenes se llame <span class="mono">ordenes</span> o <span class="mono">ordenes_servicio</span>; el esquema que utiliza normalmente la aplicación actual se llama <span class="mono">ordenes</span>.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · UML de clases / ER</span><span>9 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>08 · Información guardada</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Diccionario resumido</div>
+    <h2>Qué conserva la base de datos</h2>
+    <table>
+      <thead><tr><th>Tabla</th><th>Datos principales</th><th>Uso</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">clientes</td><td>Cédula, nombre, teléfono, dirección.</td><td>Identidad y contacto del propietario.</td></tr>
+        <tr><td class="mono">motos</td><td>Placa, marca, modelo, cilindraje, color, kilometraje.</td><td>Motos asociadas a clientes e historial.</td></tr>
+        <tr><td class="mono">usuarios</td><td>Usuario, rol, permisos, hash de contraseña, recuperación.</td><td>Acceso de administración y mecánicos.</td></tr>
+        <tr><td class="mono">ordenes</td><td>Tipo, motivo, estado, fechas, trabajo, mano de obra.</td><td>Registro del servicio y su cobro.</td></tr>
+        <tr><td class="mono">inventario</td><td>Código, nombre, stock, precio de costo y venta.</td><td>Catálogo y existencias de piezas.</td></tr>
+        <tr><td class="mono">detalle_orden_repuestos</td><td>Orden, repuesto, cantidad, precio unitario.</td><td>Piezas aprobadas/cargadas a una cuenta.</td></tr>
+        <tr><td class="mono">solicitudes_repuestos_orden</td><td>Orden, repuesto, cantidad, estado y fechas.</td><td>Solicitudes por revisar antes de descontar stock.</td></tr>
+        <tr><td class="mono">citas</td><td>Nombre, placa, fecha, hora, motivo, estado.</td><td>Agenda; se convierte en orden cuando se atiende.</td></tr>
+        <tr><td class="mono">configuracion</td><td>Datos del taller, tema, impresora, respaldo y tarifas.</td><td>Preferencias generales de la aplicación.</td></tr>
+      </tbody>
+    </table>
+    <h3>Estados y cálculos visibles</h3>
+    <div class="grid2">
+      <div class="card"><h3>Orden</h3><p><span class="tag">En proceso</span> trabajo abierto; <span class="tag">Facturada</span> cobrada. El esquema también incluye <span class="tag">Finalizada</span> para registros heredados.</p></div>
+      <div class="card"><h3>Cita / repuesto</h3><p>Las citas empiezan como <span class="tag">Pendiente</span>. Una solicitud de pieza comienza <span class="tag">Solicitado</span> y al aprobarse cambia a <span class="tag">Aprobado</span>.</p></div>
+    </div>
+    <ul>
+      <li>Al aprobar una solicitud se valida el stock, se descuentan unidades y se guarda el precio de venta vigente como precio unitario.</li>
+      <li>El reporte suma mano de obra y venta de repuestos facturados; el código estima la ganancia de repuestos como el 30% de esa venta.</li>
+      <li>Las tarifas configurables consideran categorías de cilindraje 100, 200, 400 y superior.</li>
+    </ul>
+    <div class="callout"><b>Privacidad:</b> esta guía describe el esquema, no reproduce nombres, cédulas, placas, transacciones ni otros datos de los archivos .db.</div>
+    <div class="callout warn"><b>Hay varias bases en la carpeta.</b> El backend actual usa <span class="mono">database.db</span> en modo fuente. <span class="mono">database.sqlite</span>, <span class="mono">taller.db</span>, <span class="mono">taller_motos.db</span> y los archivos <span class="mono">taller_backup_*.db</span> tienen esquemas distintos o corresponden a otras copias. No borrarlos ni mezclarlos sin respaldo e identificación.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Diccionario de datos</span><span>10 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>09 · Comunicación interna</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">API REST local</div>
+    <h2>Operaciones que ofrece el servidor</h2>
+    <p>La interfaz envía solicitudes JSON al servidor Express. El resumen agrupa las rutas principales visibles en <span class="mono">server.js</span>.</p>
+    <table>
+      <thead><tr><th>Área</th><th>Rutas</th><th>Función</th></tr></thead>
+      <tbody>
+        <tr><td>Salud / acceso</td><td class="mono">GET /api/health<br>POST /api/login<br>POST /api/recuperacion-pregunta<br>POST /api/seguridad/recuperacion-configurar<br>POST /api/recuperar-password</td><td>Estado, autenticación y recuperación.</td></tr>
+        <tr><td>Clientes / motos</td><td class="mono">GET, POST /api/clientes<br>GET, POST /api/motos<br>GET /api/motos/:id/historial</td><td>Crear o consultar personas, motos e historial.</td></tr>
+        <tr><td>Inventario</td><td class="mono">GET, POST /api/inventario</td><td>Consultar piezas, existencias y precios.</td></tr>
+        <tr><td>Órdenes</td><td class="mono">GET, POST /api/ordenes<br>GET /api/ordenes/:id/detalles<br>PUT /api/ordenes/:id/reportar<br>PUT /api/ordenes/:id/mano-obra<br>PUT /api/ordenes/:id/facturar<br>POST /api/ordenes/:id/repuestos</td><td>Crear, buscar, actualizar y facturar servicios.</td></tr>
+        <tr><td>Solicitudes</td><td class="mono">GET, POST /api/ordenes/:id/solicitudes-repuestos<br>GET /api/solicitudes-repuestos<br>POST /api/solicitudes-repuestos/:id/aprobar</td><td>Solicitar piezas y aprobarlas con validación de stock.</td></tr>
+        <tr><td>Citas</td><td class="mono">GET, POST /api/citas<br>POST /api/citas/:id/convertir</td><td>Agenda y creación de una orden desde una cita.</td></tr>
+        <tr><td>Reportes</td><td class="mono">GET /api/reportes/contabilidad<br>GET /api/reportes/mecanicos</td><td>Totales y rendimiento por mecánico.</td></tr>
+        <tr><td>Configuración</td><td class="mono">GET, POST /api/config<br>GET /api/impresoras</td><td>Datos del taller, apariencia e impresoras.</td></tr>
+        <tr><td>Copias / usuarios</td><td class="mono">GET /api/backup<br>POST /api/config-backup<br>POST /api/backup-ejecutar<br>POST /api/restore<br>GET, POST /api/usuarios<br>DELETE /api/usuarios/:id<br>POST /api/reset-sistema</td><td>Copias, restauración y tareas administrativas.</td></tr>
+      </tbody>
+    </table>
+    <h3>Verbos HTTP en palabras sencillas</h3>
+    <div class="grid3">
+      <div class="card"><h3>GET</h3><p>Consultar información.</p></div>
+      <div class="card"><h3>POST</h3><p>Crear o ejecutar una operación.</p></div>
+      <div class="card"><h3>PUT / DELETE</h3><p>Actualizar o eliminar información.</p></div>
+    </div>
+    <div class="callout warn"><b>Uso local:</b> el servicio está ligado a <span class="mono">127.0.0.1:3000</span>. No es una API pública ni se debe exponer a una red sin implementar y probar autorización del lado del servidor.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Catálogo de API</span><span>11 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>10 · Operación y continuidad</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Respaldo y restauración</div>
+    <h2>Proteger los datos del taller</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 760 260" role="img" aria-label="Flujo de respaldo y restauración">
+        <defs><marker id="backupArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#16809a"/></marker></defs>
+        <g fill="#eaf7fb" stroke="#16809a" stroke-width="2"><rect x="20" y="70" width="150" height="84" rx="10"/><rect x="215" y="70" width="150" height="84" rx="10"/><rect x="410" y="70" width="150" height="84" rx="10"/><rect x="605" y="70" width="135" height="84" rx="10"/></g>
+        <g stroke="#16809a" stroke-width="3" fill="none" marker-end="url(#backupArrow)"><path d="M170 112h38"/><path d="M365 112h38"/><path d="M560 112h38"/></g>
+        <g font-family="Segoe UI,Arial" text-anchor="middle" fill="#12355b"><text x="95" y="98" font-size="13" font-weight="700">1. Elegir carpeta</text><text x="95" y="119" font-size="10">Configuración</text><text x="95" y="137" font-size="10">destino protegido</text><text x="290" y="98" font-size="13" font-weight="700">2. Crear copia</text><text x="290" y="119" font-size="10">snapshot SQLite</text><text x="290" y="137" font-size="10">taller_backup_*.db</text><text x="485" y="98" font-size="13" font-weight="700">3. Verificar</text><text x="485" y="119" font-size="10">integridad / tablas</text><text x="485" y="137" font-size="10">archivo seleccionado</text><text x="672" y="98" font-size="13" font-weight="700">4. Restaurar</text><text x="672" y="119" font-size="10">respaldo previo</text><text x="672" y="137" font-size="10">reiniciar la app</text></g>
+        <rect x="138" y="190" width="484" height="43" rx="8" fill="#fff7e8" stroke="#d97706" stroke-width="2"/>
+        <text x="380" y="208" text-anchor="middle" fill="#80520b" font-family="Segoe UI,Arial" font-size="11" font-weight="700">Antes de restaurar: guardar una copia de la base actual en otro destino.</text><text x="380" y="224" text-anchor="middle" fill="#80520b" font-family="Segoe UI,Arial" font-size="10">No sustituir manualmente database.db por una copia antigua sin comprobarla.</text>
+      </svg>
+    </div>
+    <h3>Pasos habituales</h3>
+    <ol>
+      <li>En <b>Configuración → Copias de Seguridad</b>, elegir una carpeta accesible y protegida.</li>
+      <li>Crear respaldo. El nombre sigue el formato <span class="mono">taller_backup_&lt;fecha&gt;.db</span>.</li>
+      <li>Guardar varias copias, separar al menos una del computador y comprobar periódicamente la restauración.</li>
+      <li>Al restaurar, seleccionar un <span class="mono">.db</span> válido. El servidor comprueba SQLite y las tablas, respalda la base actual y pide reiniciar.</li>
+    </ol>
+    <div class="grid2">
+      <div class="card"><h3>Modo desarrollo</h3><p><span class="mono">database.db</span> en la carpeta del proyecto.</p></div>
+      <div class="card"><h3>Aplicación instalada</h3><p>Directorio <span class="mono">userData</span> de Electron bajo AppData. La app copia allí la plantilla inicial si es necesario.</p></div>
+    </div>
+    <div class="callout danger"><b>Restablecer sistema</b> elimina registros operativos; no es lo mismo que cerrar sesión. Respaldar y confirmar antes de utilizar esa opción.</div>
+    <p class="small">El diálogo de cierre de Electron también ofrece crear una copia antes de salir. Si el destino no está configurado, primero debe elegirse desde la sección de respaldos.</p>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Respaldo y recuperación</span><span>12 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>11 · Mapa técnico</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Archivos, comandos y pruebas</div>
+    <h2>Cómo abrir y mantener el proyecto</h2>
+    <table>
+      <thead><tr><th>Archivo / carpeta</th><th>Propósito</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">main.js</td><td>Entrada de Electron; abre la ventana y coordina el backend.</td></tr>
+        <tr><td class="mono">server.js</td><td>Servidor Express y API activa.</td></tr>
+        <tr><td class="mono">database.js</td><td>Implementación heredada; apunta a <span class="mono">taller.db</span>, no la importa el arranque actual.</td></tr>
+        <tr><td class="mono">public\index.html</td><td>Inicio de sesión y recuperación.</td></tr>
+        <tr><td class="mono">public\dashboard.html</td><td>Panel administrativo; módulos de taller.</td></tr>
+        <tr><td class="mono">public\mobile.html</td><td>Vista táctil de órdenes para mecánicos.</td></tr>
+        <tr><td class="mono">public\*.jpg, *.png, *.ico</td><td>Fondos, marca e iconos.</td></tr>
+        <tr><td class="mono">scripts\smoke-test.js</td><td>Prueba de humo de login, operaciones y backup/restore con datos temporales.</td></tr>
+        <tr><td class="mono">dist\ / dist_inno\</td><td>Aplicación empaquetada e instalador Windows presentes.</td></tr>
+      </tbody>
+    </table>
+    <h3>Comandos de desarrollo</h3>
+    <div class="codeblock">cd "D:\proyectos dennyn\taller-motos"
+npm install
+npm start</div>
+    <table>
+      <thead><tr><th>Comando</th><th>Resultado</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">npm start</td><td>Abre Electron desde <span class="mono">main.js</span>.</td></tr>
+        <tr><td class="mono">npm run test:smoke</td><td>Ejecuta la prueba automatizada básica con base temporal.</td></tr>
+        <tr><td class="mono">npm run build</td><td>Empaqueta Windows x64 en <span class="mono">dist\</span>.</td></tr>
+      </tbody>
+    </table>
+    <p>El instalador visible en el proyecto es <span class="mono">dist_inno\HIDEP-SOFT-SG-Setup-1.0.0.exe</span>. Para usar el programa no hace falta ejecutar los comandos: basta el instalador.</p>
+    <div class="callout warn"><b>Si PowerShell dice que npm no existe:</b> instalar Node.js, abrir una terminal nueva y confirmar con <span class="mono">node -v</span> y <span class="mono">npm -v</span>. Si npm bloquea scripts de dependencias, revisar los paquetes mostrados antes de aprobarlos.</div>
+    <div class="callout"><b>Si faltan datos en la versión instalada:</b> comprobar qué base usa la app bajo AppData. No siempre es el archivo <span class="mono">database.db</span> visible en la carpeta del código.</div>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Mapa y comandos</span><span>13 / 14</span></div>
+</section>
+
+<section class="page">
+  <div class="page-head"><span>12 · Alcance y buenas prácticas</span><img src="public/icon.png" alt=""></div>
+  <div class="content">
+    <div class="eyebrow">Notas para el equipo</div>
+    <h2>Qué está implementado y qué cuidar</h2>
+    <div class="grid2">
+      <div class="card"><h3>Contraseñas</h3><p>El servidor usa <span class="mono">scrypt</span> con sal para proteger contraseñas y respuestas de recuperación; también puede migrar contraseñas antiguas al iniciar.</p></div>
+      <div class="card"><h3>Cuenta inicial</h3><p>Si la base no tiene usuario admin, el código actual crea <span class="mono">admin</span> / <span class="mono">1234</span>. Configure recuperación y reemplace esa contraseña al instalar.</p></div>
+      <div class="card"><h3>Roles / permisos</h3><p>El tablero puede mostrar módulos según los permisos elegidos. El servidor actual escucha localmente; no se debe exponer a una red sin reforzar autorización por endpoint.</p></div>
+      <div class="card"><h3>Pruebas</h3><p><span class="mono">npm run test:smoke</span> comprueba flujos principales, incluida la copia y restauración en una carpeta temporal.</p></div>
+    </div>
+    <h3>Recomendaciones para usarlo con tranquilidad</h3>
+    <ul>
+      <li>Restringir el acceso al computador y a los archivos .db: guardan información personal y comercial.</li>
+      <li>Hacer respaldo antes de actualizar, migrar o sustituir archivos de base de datos.</li>
+      <li>Probar una restauración de forma controlada y mantener más de una copia independiente.</li>
+      <li>No presentar las ilustraciones de las páginas 03–04 como capturas literales: son modelos visuales con información de ejemplo.</li>
+    </ul>
+    <div class="callout warn"><b>Nota técnica importante:</b> el login entrega permisos al panel, pero en el backend revisado no se observa una capa general de sesión/autorización para cada ruta. El diseño actual es de uso local en un solo equipo, no un servicio multiusuario para Internet.</div>
+    <h3>Glosario breve</h3>
+    <table>
+      <tbody>
+        <tr><td><b>Electron</b></td><td>Empaqueta una interfaz web como aplicación de escritorio.</td></tr>
+        <tr><td><b>Express / API</b></td><td>Servicio que recibe solicitudes del panel y aplica operaciones del sistema.</td></tr>
+        <tr><td><b>SQLite</b></td><td>Base de datos guardada como archivo local.</td></tr>
+        <tr><td><b>UML</b></td><td>Notación visual para describir usuarios, procesos, componentes e información.</td></tr>
+        <tr><td><b>POS</b></td><td>Punto de venta; en este proyecto, pantalla de revisión y cobro de órdenes.</td></tr>
+      </tbody>
+    </table>
+    <div class="rule"></div>
+    <p class="tiny muted">Documento preparado a partir de los archivos y esquemas del proyecto. No se leyeron registros personales de las bases de datos. Las funciones pueden cambiar si se modifican el código, la configuración o los archivos SQLite.</p>
+    <p class="lead" style="margin-top:5mm"><b>HIDEP-SOFT-SG</b> · Clientes, motos, servicio, repuestos y caja en un mismo flujo de trabajo.</p>
+  </div>
+  <div class="footer"><span>HIDEP-SOFT-SG · Fin del manual visual</span><span>14 / 14</span></div>
+</section>
+
+</body>
+</html>

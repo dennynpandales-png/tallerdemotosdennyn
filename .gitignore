@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist_inno/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+public/uploads/
+.env
+.env.*
+!.env.example
+*.log

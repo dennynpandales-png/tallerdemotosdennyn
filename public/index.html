@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080b11">
+    <title>Iniciar sesión | HIDEP-SOFT-SG - Taller de Motos</title>
+    <link rel="icon" type="image/x-icon" href="icon.ico">
+    <link rel="stylesheet" href="tema-taller.css">
+    <script src="identidad.js" defer></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        html,
+        body {
+            min-width: 0;
+            min-height: 100%;
+            margin: 0;
+        }
+        body {
+            min-height: 100vh;
+            min-height: 100svh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .login-brand {
+            padding: clamp(48px, 13vh, 118px) 20px 24px;
+            text-align: center;
+        }
+        .login-brand h1 {
+            margin: 0;
+            color: var(--sg-text);
+            font-size: clamp(1.25rem, 3vw, 2rem);
+            font-weight: 900;
+            letter-spacing: .035em;
+            line-height: 1.15;
+        }
+        .login-main {
+            width: 100%;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0 20px 24px;
+        }
+        .login-card {
+            position: relative;
+            display: flex;
+            min-height: 380px;
+            flex-direction: column;
+            width: 100%;
+            max-width: 380px;
+            padding: 24px;
+            border-radius: 7px;
+        }
+        .login-card::before,
+        .login-card::after {
+            position: absolute;
+            top: 8px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #f1f5f9 25%, #475569 75%);
+            box-shadow: 0 0 0 1px rgba(7, 10, 15, 0.85);
+            content: '';
+        }
+        .login-card::before {
+            left: 8px;
+        }
+        .login-card::after {
+            right: 8px;
+        }
+        .login-card h2 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            color: var(--sg-accent);
+            font-size: 21px;
+            font-weight: 800;
+        }
+        #formLogin {
+            margin-top: 1.2rem;
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        .input-group label {
+            margin-bottom: 6px;
+            color: var(--sg-muted);
+            font-size: 11px;
+        }
+        .input-group input {
+            width: 100%;
+            min-height: 38px;
+            padding: 9px 10px;
+            border: 1px solid #475569;
+            border-radius: 4px;
+            outline: none;
+            background: var(--sg-input);
+            color: var(--sg-text);
+            font: inherit;
+            font-size: 12px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .input-group input:focus {
+            border-color: var(--sg-accent);
+            box-shadow: 0 0 0 1px var(--sg-accent);
+        }
+        .input-group input::placeholder {
+            color: var(--sg-muted);
+        }
+        .btn-action {
+            display: flex;
+            width: 100%;
+            min-height: 42px;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 4px;
+            padding: 10px 12px;
+            border: 0;
+            border-radius: 4px;
+            background: var(--sg-accent);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+            color: #111827;
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 800;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+        .btn-action:hover {
+            background: var(--sg-accent-hover);
+        }
+        .btn-action:disabled { opacity: .7; cursor: wait; }
+        .btn-action:active {
+            transform: translateY(1px);
+        }
+        .btn-action:focus-visible,
+        .link-recuperar:focus-visible {
+            outline: 2px solid #fbbf24;
+            outline-offset: 3px;
+        }
+        .msg-status {
+            display: block;
+            min-height: 36px;
+            visibility: hidden;
+            margin-top: 14px;
+            padding: 9px 10px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-size: 10px;
+            line-height: 1.4;
+        }
+        .msg-status:not(:empty) {
+            visibility: visible;
+        }
+        .msg-status[data-state="error"] {
+            border-color: rgba(239, 68, 68, 0.45);
+            background: rgba(127, 29, 29, 0.2);
+            color: #ef4444;
+        }
+        .msg-status[data-state="success"] {
+            border-color: rgba(16, 185, 129, 0.4);
+            background: rgba(6, 78, 59, 0.2);
+            color: #10b981;
+        }
+        .link-recuperar {
+            display: block;
+            margin: auto auto 0;
+            padding: 16px 0 0;
+            border: 0;
+            background: transparent;
+            color: var(--sg-muted);
+            cursor: pointer;
+            font: inherit;
+            font-size: 10px;
+        }
+        .link-recuperar:hover {
+            color: var(--sg-accent);
+            text-decoration: underline;
+        }
+        .login-security {
+            margin: 0 20px clamp(70px, 11vh, 100px);
+            color: var(--sg-muted);
+            font-size: 10px;
+            text-align: center;
+        }
+        @media (max-width: 520px) {
+            .login-brand {
+                padding-top: max(1.5rem, env(safe-area-inset-top));
+            }
+            .login-card {
+                min-height: 0;
+                padding: 22px 18px;
+            }
+            .input-group input { font-size: 1rem; min-height: 46px; }
+            .btn-action, .link-recuperar { min-height: 44px; }
+            .link-recuperar { font-size: .8rem; }
+            .msg-status:empty { display: none; }
+            .login-security { margin-bottom: 1.5rem; }
+        }
+    </style>
+</head>
+<body class="fondo-taller">
+    <header class="login-brand">
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; margin-bottom: 12px;">
+            <img src="icon.png" alt="" class="logo-taller" width="64" height="64">
+            <svg viewBox="0 0 160 90" style="width: 130px; height: 75px; filter: drop-shadow(0 2px 10px rgba(245, 158, 11, 0.45));" aria-hidden="true">
+                <defs>
+                    <linearGradient id="motoGradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#f59e0b"/>
+                        <stop offset="100%" stop-color="#d97706"/>
+                    </linearGradient>
+                    <linearGradient id="wheelGradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#64748b"/>
+                        <stop offset="100%" stop-color="#1e293b"/>
+                    </linearGradient>
+                </defs>
+                <circle cx="32" cy="62" r="21" fill="none" stroke="url(#wheelGradLogin)" stroke-width="6"/>
+                <circle cx="32" cy="62" r="15" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/>
+                <circle cx="32" cy="62" r="5" fill="#f59e0b"/>
+                <circle cx="128" cy="62" r="21" fill="none" stroke="url(#wheelGradLogin)" stroke-width="6"/>
+                <circle cx="128" cy="62" r="15" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,2"/>
+                <circle cx="128" cy="62" r="5" fill="#f59e0b"/>
+                <path d="M 32 62 L 60 48 L 86 56 L 102 46 L 128 62" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
+                <path d="M 60 48 L 74 65 L 94 65 L 86 56" fill="none" stroke="#f59e0b" stroke-width="3"/>
+                <path d="M 52 46 C 58 35, 78 32, 92 38 C 104 42, 112 40, 118 46 L 108 50 C 96 46, 80 44, 68 50 Z" fill="url(#motoGradLogin)"/>
+                <path d="M 50 45 C 55 42, 65 42, 72 45 C 65 48, 55 48, 50 45 Z" fill="#0f172a"/>
+                <path d="M 128 62 L 108 26 L 98 24 M 106 28 L 116 28" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+                <path d="M 112 28 L 122 34 L 115 38 Z" fill="#fbbf24"/>
+                <path d="M 72 65 C 85 65, 100 68, 126 56" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+                <line x1="110" y1="58" x2="132" y2="52" stroke="#f59e0b" stroke-width="2"/>
+            </svg>
+        </div>
+        <h1>HIDEP-SOFT-SG - Taller de Motos</h1>
+    </header>
+
+    <main class="login-main">
+        <section class="login-card panel-taller" aria-labelledby="loginTitle">
+            <h2 id="loginTitle"><span aria-hidden="true">🛠️</span> Iniciar sesión</h2>
+            <form id="formLogin">
+                <div class="input-group">
+                    <label for="loginUser">Usuario</label>
+                    <input type="text" id="loginUser" placeholder="Ingrese su usuario..." required autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" placeholder="Ingrese su contraseña..." required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn-action">
+                    <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 17l5-5-5-5M15 12H3"></path>
+                        <path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"></path>
+                    </svg>
+                    Ingresar al Sistema
+                </button>
+                <div id="msgLogin" class="msg-status" role="status" aria-live="polite"></div>
+            </form>
+            <button type="button" class="link-recuperar" onclick="recuperarPasswordPrompt()">¿Necesitas ayuda? Recupera tu contraseña.</button>
+        </section>
+    </main>
+
+    <p class="login-security">
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 19 6v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-3Z"></path>
+            <path d="m9 12 2 2 4-4"></path>
+        </svg>
+        Acceso seguro · Datos almacenados localmente
+    </p>
+
+    <script>
+        document.getElementById('formLogin').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const msg = document.getElementById('msgLogin');
+            const username = document.getElementById('loginUser').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const submit = e.currentTarget.querySelector('button[type="submit"]');
+            if (submit.disabled) return;
+            submit.disabled = true;
+            msg.textContent = '';
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    msg.dataset.state = 'success';
+                    msg.style.color = '#10b981';
+                    msg.textContent = 'Acceso concedido...';
+                    const destino = data.rol === 'Mecanico' ? '/mobile.html' : '/dashboard.html';
+                    window.location.replace(destino);
+                    return;
+                } else {
+                    msg.dataset.state = 'error';
+                    msg.style.color = '#ef4444';
+                    msg.textContent = data.mensaje || 'Usuario o contraseña incorrectos. Intenta nuevamente.';
+                }
+            } catch (err) {
+                console.error('Error de login:', err);
+                msg.dataset.state = 'error';
+                msg.style.color = '#ef4444';
+                msg.textContent = 'Error de conexión con el servidor.';
+            }
+            submit.disabled = false;
+        });
+
+        async function recuperarPasswordPrompt() {
+            const username = prompt('Usuario:');
+            const nombre = prompt('Nombre completo registrado:');
+            const cedula = prompt('Cédula registrada:');
+            if (!username || !nombre || !cedula) return;
+            try {
+                const questionResponse = await fetch('/api/recuperacion-pregunta', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, nombre, cedula })
+                });
+                const question = await questionResponse.json();
+                if (!questionResponse.ok) return alert(question.mensaje || 'No se pudo validar la cuenta.');
+                const respuesta_seguridad = prompt(question.pregunta_seguridad);
+                const nuevaPassword = prompt('Nueva contraseña (mínimo 10 caracteres):');
+                if (!respuesta_seguridad || !nuevaPassword) return;
+                const res = await fetch('/api/recuperar-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, nombre, cedula, respuesta_seguridad, nuevaPassword })
+                });
+                const data = await res.json();
+                alert(data.mensaje || 'No se pudo procesar la solicitud.');
+            } catch {
+                alert('Error al procesar la solicitud.');
+            }
+        }
+    </script>
+</body>
+</html>

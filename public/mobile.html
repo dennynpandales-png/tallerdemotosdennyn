@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#080b11">
+    <title>Órdenes del mecánico | HIDEP-SOFT-SG - Taller de Motos</title>
+    <link rel="icon" href="icon.ico">
+    <link rel="stylesheet" href="tema-taller.css">
+    <script defer src="identidad.js"></script>
+    <script src="/dispositivo.js"></script>
+    <style>
+        :root { --ready: #a3e8bc; }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { width: 100%; max-width: 100vw; overflow-x: clip; }
+        body {
+            margin: 0;
+            color: var(--sg-text);
+            font-size: 1rem;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+        [hidden] { display: none !important; }
+        .workspace {
+            width: 100%;
+            max-width: 100vw;
+            min-width: 0;
+            padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+                max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+            overflow-x: clip;
+        }
+        .mechanic-layout { width: 100%; min-width: 0; margin-inline: auto; }
+        .stack, .order, .order-section, form { display: flex; flex-direction: column; min-width: 0; }
+        .stack, .order, .order-section, form { gap: .75rem; }
+        .top { display: grid; gap: .5rem; padding: .25rem 0 .5rem; }
+        .brand {
+            width: min(100%, 13rem);
+            margin: 0 auto .5rem;
+            padding: .75rem;
+            text-align: center;
+            border: 1px solid #f59e0b52;
+            border-radius: .5rem;
+            background: linear-gradient(#f59e0b26, #0a0e1480);
+        }
+        .brand img { display: block; width: 100%; height: auto; filter: drop-shadow(0 2px 8px #f59e0b55); }
+        .brand-name { display: block; color: var(--sg-accent); font-size: 1.15rem; font-weight: 900; line-height: 1.2; }
+        .brand-subtitle { display: block; color: var(--sg-text); font-size: .65rem; font-weight: 700; letter-spacing: .08em; }
+        .brand-tag {
+            display: inline-block;
+            margin-top: .25rem;
+            padding: .05rem .55rem;
+            border: 1px solid #f59e0b61;
+            border-radius: 1rem;
+            background: #f59e0b26;
+            color: var(--sg-accent);
+            font-size: .65rem;
+            font-weight: 800;
+        }
+        h1, h2, h3, p, dl, dd, ul, figure { margin: 0; }
+        h1 { margin-top: .125rem; font-size: clamp(1.6rem, 6vw, 2rem); line-height: 1.2; }
+        h2 { font-size: 1.375rem; line-height: 1.2; }
+        h3 { font-size: 1.0625rem; line-height: 1.35; }
+        .connection, .hint, figcaption { color: var(--sg-muted); font-size: .875rem; }
+        .order { padding: clamp(.75rem, 4vw, 1.25rem); border-radius: .75rem; }
+        .order-section { min-width: 0; }
+        .order-section + .order-section { border-top: 1px solid var(--sg-border-subtle); padding-top: .875rem; }
+        .order-caption { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .state { padding: .2rem .55rem; border-radius: .5rem; background: #3b2b16; color: #ffd08b; font-size: .875rem; font-weight: 700; }
+        .state.done { background: #1a3c30; color: var(--ready); }
+        .facts { display: grid; gap: .45rem; }
+        dt { color: var(--sg-muted); font-size: .875rem; }
+        dd { font-weight: 550; white-space: pre-wrap; }
+        label { display: grid; min-width: 0; gap: .3rem; font-weight: 600; }
+        input, button, select, textarea {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            min-height: 46px;
+            border: 1px solid var(--sg-border-subtle);
+            border-radius: .6rem;
+            padding: .55rem .7rem;
+            background: var(--sg-input);
+            color: var(--sg-text);
+            font: inherit;
+        }
+        select { text-overflow: ellipsis; }
+        textarea { resize: vertical; }
+        button { white-space: normal; overflow-wrap: anywhere; cursor: pointer; font-weight: 700; }
+        button:disabled { opacity: .65; cursor: wait; }
+        :focus-visible { outline: 2px solid var(--sg-accent); outline-offset: 2px; }
+        .secondary { background: #253447; }
+        .secondary:hover:not(:disabled) { border-color: var(--sg-accent); }
+        .primary { background: var(--sg-accent); color: #241708; border-color: var(--sg-accent); }
+        .parts { list-style: none; padding: 0; display: grid; gap: .35rem; }
+        .parts li { background: var(--sg-input); padding: .45rem .6rem; border-radius: .45rem; }
+        .gallery { display: grid; gap: .65rem; }
+        .gallery figure { min-width: 0; }
+        .gallery img, dialog video { display: block; max-width: 100%; height: auto; }
+        .gallery img { width: min(100%, 18rem); border-radius: .55rem; background: var(--sg-input); }
+        .feedback:empty { display: none; }
+        .feedback[data-error="true"] { color: #ffb4aa; }
+        dialog { width: min(calc(100% - 2rem), 32rem); max-width: 100%; max-height: 90dvh; overflow-y: auto; }
+        dialog::backdrop { background: #000a; }
+        #stockAlert { background: var(--sg-panel); color: var(--sg-text); border: 1px solid #ef8b80; border-radius: 1rem; padding: 1rem; }
+        #stockAlert p { margin-block: .75rem; }
+        .mechanic-tools { padding: 1rem; border-radius: .75rem; }
+        @media (max-width: 768px) {
+            html, body, .workspace { overflow-x: hidden; }
+            .order, .mechanic-layout { display: flex; flex-direction: column; }
+            .fondo-mecanico {
+                --sg-workshop-image: none;
+                --sg-workshop-shade: linear-gradient(155deg, #18202c, var(--sg-base) 72%);
+            }
+        }
+        html.touch-device .fondo-mecanico {
+            --sg-workshop-image: none;
+            --sg-workshop-shade: linear-gradient(155deg, #18202c, var(--sg-base) 72%);
+        }
+        @media (width > 768px) {
+            .order { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+            .order-section + .order-section { border-top: 0; padding-top: 0; }
+            .order-section[data-parts-section] { border-inline-start: 1px solid var(--sg-border-subtle); padding-inline-start: 1rem; }
+            .order-section[data-evidence], .order-section[data-order-close] {
+                grid-column: 1 / -1;
+                border-top: 1px solid var(--sg-border-subtle);
+                padding-top: 1rem;
+            }
+            .gallery { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+            .order-section[data-evidence] > .secondary, .order-section[data-order-close] > .primary {
+                width: fit-content;
+                min-width: min(100%, 13rem);
+            }
+        }
+        html.touch-device .mechanic-layout, html.touch-device .order { display: flex; flex-direction: column; }
+        html.touch-device .workspace { overflow-x: hidden; }
+        html.touch-device .order .order-section + .order-section {
+            border-inline-start: 0;
+            border-top: 1px solid var(--sg-border-subtle);
+            padding: .875rem 0 0;
+        }
+        html.touch-device .gallery { grid-template-columns: minmax(0, 1fr); }
+        html.touch-device .order .order-section > button { width: 100%; }
+        @media (min-width: 70rem) {
+            html:not(.touch-device) .mechanic-layout {
+                display: grid;
+                grid-template-columns: minmax(13rem, 17%) minmax(0, 1fr);
+                align-items: start;
+                gap: clamp(1rem, 2.5vw, 3rem);
+            }
+            html:not(.touch-device) .mechanic-tools {
+                position: sticky;
+                top: 1rem;
+            }
+            html:not(.touch-device) .order { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            html:not(.touch-device) .order-section[data-evidence] {
+                grid-column: auto;
+                border-top: 0;
+                border-inline-start: 1px solid var(--sg-border-subtle);
+                padding: 0 0 0 1rem;
+            }
+        }
+    </style>
+    <script defer src="/camara-evidencia.js"></script>
+    <script defer src="/mecanico.js"></script>
+</head>
+<body class="fondo-taller fondo-mecanico">
+    <main class="workspace">
+        <div class="mechanic-layout stack">
+            <aside class="mechanic-tools stack panel-taller" aria-label="Sesión y filtros de órdenes">
+              <header class="top">
+                <figure class="brand">
+                  <img src="motocicleta-taller.svg" alt="" width="160" height="90">
+                  <figcaption>
+                    <strong class="brand-name">HIDEP-SOFT-SG</strong>
+                    <span class="brand-subtitle">SISTEMA DE GESTIÓN</span>
+                    <span class="brand-tag">TALLER DE MOTOS</span>
+                  </figcaption>
+                </figure>
+                <h1>Órdenes del mecánico</h1>
+                <p id="connStatus" class="connection" role="status">Conectando…</p>
+                <button type="button" class="secondary" id="salirMecanico">Cerrar sesión</button>
+              </header>
+              <label>
+                Buscar orden
+                <input type="search" id="inputBuscarMovil" placeholder="Número, placa, modelo o cliente" autocomplete="off">
+              </label>
+            </aside>
+            <div id="contenedorOrdenesMovil" class="stack">
+                <p role="status">Cargando órdenes…</p>
+            </div>
+        </div>
+    </main>
+    <dialog id="stockAlert" aria-labelledby="stockTitle">
+        <h2 id="stockTitle">Stock insuficiente</h2>
+        <p id="alarmaStockDetalle"></p>
+        <form method="dialog"><button class="secondary">Entendido</button></form>
+    </dialog>
+</body>
+</html>
