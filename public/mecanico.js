@@ -35,7 +35,8 @@ function facts(order) {
         ['Modelo', [order.moto_marca, order.moto_modelo].filter(Boolean).join(' ') || 'Sin registrar'],
         ['Cliente', order.cliente_nombre || 'Sin registrar'],
         ['Motivo / diagnóstico', order.motivo_ingreso || 'Sin registrar'],
-        ['Trabajo reportado', order.trabajo_realizado || 'Sin avances registrados']
+        ['Trabajo reportado', order.trabajo_realizado || 'Sin avances registrados'],
+        ['Mano de obra reportada', order.mano_obra_reporte || 'Sin reporte']
     ].map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeText(value)}</dd></div>`).join('');
 }
 
@@ -67,11 +68,10 @@ function createCard(order) {
             <ul class="parts" data-parts><li>Cargando repuestos utilizados…</li></ul>
             ${active ? `<form data-action="parts">
                 <label>Buscar repuesto
-                    <input type="search" name="buscar" placeholder="Nombre o código" autocomplete="off">
+                    <input type="search" name="buscar" placeholder="🔍 Letra, nombre o código REP" autocomplete="off" aria-controls="resultados-rep-${id}">
                 </label>
-                <label>Repuesto de inventario
-                    <select name="repuesto" required></select>
-                </label>
+                <div id="resultados-rep-${id}" class="catalog-results" data-catalog-results hidden></div>
+                <input type="hidden" name="repuesto">
                 <label>Cantidad utilizada
                     <input type="number" name="cantidad" inputmode="numeric" value="1" min="1" step="1" required>
                 </label>
@@ -79,6 +79,17 @@ function createCard(order) {
                 <p class="feedback" role="status"></p>
             </form>` : ''}
         </section>
+        ${active ? `<section class="order-section"><h3>Mano de obra</h3>
+            <form data-action="labor">
+                <label>Buscar servicio <input type="search" name="buscar" placeholder="🔍 Letra, nombre o código MO" autocomplete="off" aria-controls="resultados-mo-${id}"></label>
+                <div id="resultados-mo-${id}" class="catalog-results" data-catalog-results hidden></div>
+                <input type="hidden" name="servicio">
+                <label>Trabajo realizado <textarea name="descripcion" rows="2" maxlength="500"></textarea></label>
+                <label>Precio sugerido (opcional) <input type="number" name="precio" min="0" step="0.01" inputmode="decimal" placeholder="Déjalo en blanco si no sabes el precio"></label>
+                <button class="secondary">Reportar mano de obra</button>
+                <output class="feedback"></output>
+            </form>
+        </section>` : ''}
         <section class="order-section" data-evidence>
             <h3>Evidencia fotográfica</h3>
             ${active ? `<label>Descripción de la foto
@@ -98,8 +109,7 @@ function createCard(order) {
             <p class="feedback" role="status"></p>
         </section>` : ''}`;
     card.querySelector('.facts').innerHTML = facts(order);
-    const partsForm = card.querySelector('[data-action="parts"]');
-    if (partsForm) fillInventory(partsForm);
+    card.querySelectorAll('form[data-action="parts"], form[data-action="labor"]').forEach(fillInventory);
     refreshParts(card);
     refreshPhotos(card);
     return card;
@@ -157,21 +167,55 @@ async function loadOrders() {
     renderOrders();
 }
 
+const normalizeCatalog = value => String(value ?? '').trim().normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const withoutLeadingZeros = digits => digits.replace(/^0+(?=\d)/, '');
+
+function catalogMatches(item, query) {
+    const code = normalizeCatalog(item.codigo || item.id);
+    if (code.includes(query)) return true;
+    const words = normalizeCatalog(item.nombre).match(/[\p{L}\p{N}]+/gu) || [];
+    return query.split(/\s+/).every(term => words.some(word => word.startsWith(term)) ||
+        (/^\d+$/.test(term) && (code.match(/\d+/g) || []).some(digits =>
+            withoutLeadingZeros(digits).startsWith(withoutLeadingZeros(term)))));
+}
+
 function fillInventory(form) {
-    const select = form.elements.repuesto;
-    const selection = select.value;
-    const query = form.elements.buscar.value.trim().toLowerCase();
-    select.replaceChildren(new Option('Selecciona un repuesto', ''));
-    for (const part of inventory) {
-        if (!`${part.nombre} ${part.codigo || ''}`.toLowerCase().includes(query)) continue;
-        select.add(new Option(`${part.nombre} · Stock ${part.stock}`, part.id));
+    const labor = form.dataset.action === 'labor';
+    const selected = labor ? form.elements.servicio : form.elements.repuesto;
+    const input = form.elements.buscar;
+    const results = form.querySelector('[data-catalog-results]');
+    const query = normalizeCatalog(input.value);
+    results.replaceChildren();
+    results.hidden = !query || Boolean(selected.value);
+    if (results.hidden) return;
+
+    const matches = inventory.filter(item => (item.tipo === 'MO') === labor && catalogMatches(item, query)).slice(0, 12);
+    for (const item of matches) {
+        const label = `[${item.codigo || item.id}] ${item.nombre}`;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = labor ? label : `${label} · Stock ${item.stock}${item.origen ? ' · ' + item.origen : ''}`;
+        button.addEventListener('click', () => {
+            selected.value = item.id;
+            input.value = label;
+            results.hidden = true;
+            input.focus();
+        });
+        results.append(button);
     }
-    select.value = [...select.options].some(option => option.value === selection) ? selection : '';
+    if (!matches.length) {
+        const status = document.createElement('output');
+        status.textContent = labor ? 'No se encontraron servicios. Puedes describir el trabajo abajo.' : 'No se encontraron repuestos.';
+        results.append(status);
+    }
 }
 
 async function loadInventory() {
     inventory = await api('/inventario');
-    ordersList.querySelectorAll('[data-action="parts"]').forEach(fillInventory);
+    for (const form of ordersList.querySelectorAll('form[data-action="parts"], form[data-action="labor"]')) {
+        const results = form.querySelector('[data-catalog-results]');
+        if (!results.hidden && !results.contains(document.activeElement)) fillInventory(form);
+    }
 }
 
 async function refreshParts(card) {
@@ -250,21 +294,33 @@ ordersList.addEventListener('submit', async event => {
     event.preventDefault();
     const card = form.closest('.order');
     const route = `/ordenes/${card.dataset.order}`;
-    const button = form.querySelector('button');
+    const button = event.submitter || form.querySelector('button:not([type="button"])');
     const status = form.querySelector('.feedback');
     button.disabled = true;
     try {
         if (form.dataset.action === 'parts') {
+            if (!form.elements.repuesto.value) throw new Error('Selecciona un repuesto de las coincidencias.');
             const result = await api(route + '/repuestos', 'POST', {
                 repuesto_id: form.elements.repuesto.value, cantidad: Number(form.elements.cantidad.value)
             });
             form.reset();
+            form.elements.repuesto.value = '';
+            fillInventory(form);
             feedback(status, result.mensaje);
             if (result.stock_insuficiente && !stockAlert.open) {
                 document.getElementById('alarmaStockDetalle').textContent = result.mensaje;
                 stockAlert.showModal();
             }
             await Promise.all([loadInventory(), refreshParts(card)]);
+        } else if (form.dataset.action === 'labor') {
+            await api(route + '/reportar-mano-obra', 'PUT', {
+                servicio_id: form.elements.servicio.value, descripcion: form.elements.descripcion.value, precio: form.elements.precio.value
+            });
+            form.reset();
+            form.elements.servicio.value = '';
+            fillInventory(form);
+            feedback(status, 'Mano de obra reportada a Administración.');
+            await loadOrders();
         } else {
             const advance = form.elements.avance.value.trim();
             if (!advance) throw new Error('Escribe el nuevo avance.');
@@ -281,7 +337,30 @@ ordersList.addEventListener('submit', async event => {
 });
 
 ordersList.addEventListener('input', event => {
+    const input = event.target;
+    if (input.name !== 'buscar') return;
+    const form = input.form;
+    const selected = form.elements.repuesto || form.elements.servicio;
+    selected.value = '';
+    fillInventory(form);
+});
+ordersList.addEventListener('keydown', event => {
+    if (event.target.name !== 'buscar') return;
+    const results = event.target.form.querySelector('[data-catalog-results]');
+    if (results.hidden) return;
+    if (event.key === 'Escape') results.hidden = true;
+    if (event.key === 'ArrowDown' || event.key === 'Enter') {
+        event.preventDefault();
+        results.querySelector('button')?.focus();
+    }
+});
+ordersList.addEventListener('focusin', event => {
     if (event.target.name === 'buscar') fillInventory(event.target.form);
+});
+ordersList.addEventListener('focusout', event => {
+    const form = event.target.closest('form');
+    const results = form?.querySelector('[data-catalog-results]');
+    if (results && event.relatedTarget !== form.elements.buscar && !results.contains(event.relatedTarget)) results.hidden = true;
 });
 ordersList.addEventListener('change', event => {
     const input = event.target;
@@ -335,13 +414,19 @@ async function init() {
         await Promise.all([loadInventory(), loadOrders()]);
         const stream = new EventSource('/api/sync-events');
         stream.addEventListener('sesion_revocada', () => location.replace('/'));
-        stream.onopen = () => { connection.textContent = 'Conectado'; };
+        stream.onopen = () => {
+            connection.textContent = 'Conectado';
+            loadInventory().catch(error => { connection.textContent = error.message; });
+        };
         stream.onerror = () => { connection.textContent = 'Reconectando…'; };
         stream.addEventListener('sync', event => {
             const { tipo, data } = JSON.parse(event.data);
             const card = cards.get(Number(data.ordenId ?? data.orden_id));
-            if (tipo === 'orden_actualizada' && data.accion === 'repuesto_agregado') {
+            if (tipo === 'sistema_reiniciado') {
+                location.reload();
+            } else if (tipo === 'inventario_actualizado') {
                 loadInventory().catch(error => { connection.textContent = error.message; });
+            } else if (tipo === 'orden_actualizada' && data.accion === 'repuesto_agregado') {
                 if (card) refreshParts(card);
             } else if (tipo === 'orden_actualizada' || tipo === 'asignacion_actualizada') {
                 loadOrders().catch(error => { connection.textContent = error.message; });

@@ -265,9 +265,61 @@
                 </button>
                 <div id="msgLogin" class="msg-status" role="status" aria-live="polite"></div>
             </form>
-            <button type="button" class="link-recuperar" onclick="recuperarPasswordPrompt()">¿Necesitas ayuda? Recupera tu contraseña.</button>
+            <button type="button" class="link-recuperar" id="abrirRecuperacion">¿Olvidaste tu contraseña?</button>
         </section>
     </main>
+
+    <dialog id="cambiarClaveTemporal" aria-labelledby="tituloCambioClave" style="width:min(26rem, 92vw); border-radius:12px;">
+        <h2 id="tituloCambioClave">Elige una contraseña nueva</h2>
+        <p>El administrador restableció tu contraseña. Elige una nueva para entrar.</p>
+        <form id="formCambiarClave">
+            <div class="input-group"><label for="claveNueva">Contraseña nueva</label><input id="claveNueva" type="password" autocomplete="new-password" minlength="10" maxlength="256" required></div>
+            <div class="input-group"><label for="confirmarClaveNueva">Confirma la contraseña nueva</label><input id="confirmarClaveNueva" type="password" autocomplete="new-password" minlength="10" maxlength="256" required></div>
+            <button type="submit" class="btn-action">Cambiar contraseña e ingresar</button>
+            <p id="estadoCambioClave" class="msg-status" role="status"></p>
+        </form>
+        <button type="button" class="link-recuperar" onclick="this.closest('dialog').close()">Cancelar</button>
+    </dialog>
+    <dialog id="recuperarCuenta" aria-labelledby="tituloRecuperacion" style="width:min(26rem, 92vw); border-radius:12px;">
+        <h2 id="tituloRecuperacion">Recupera tu contraseña</h2>
+        <div class="input-group"><label for="usuarioRecuperacion">Usuario</label><input id="usuarioRecuperacion" autocomplete="username" maxlength="128" required></div>
+        <form id="buscarPregunta">
+            <div class="input-group"><label for="nombreRecuperacion">Nombre completo registrado</label><input id="nombreRecuperacion" maxlength="160" required></div>
+            <div class="input-group"><label for="cedulaRecuperacion">Cédula registrada</label><input id="cedulaRecuperacion" maxlength="40" required></div>
+            <button type="submit" class="btn-action">Mostrar pregunta de seguridad</button>
+        </form>
+        <form id="responderPregunta" hidden>
+            <div class="input-group"><label id="preguntaRecuperacion" for="respuestaRecuperacion"></label><input id="respuestaRecuperacion" type="password" autocomplete="off" maxlength="256" required></div>
+            <button type="submit" class="btn-action">Validar respuesta</button>
+        </form>
+        <form id="cambiarClavePorPregunta" hidden>
+            <div class="input-group"><label for="clavePorPregunta">Nueva contraseña</label><input id="clavePorPregunta" type="password" autocomplete="new-password" minlength="10" maxlength="256" required></div>
+            <button type="submit" class="btn-action">Cambiar contraseña</button>
+        </form>
+        <details id="ayudaRecuperacion">
+            <summary>No recuerdo mis datos o mi respuesta</summary>
+            <form id="solicitarRecuperacion">
+                <button type="submit" class="btn-action">Pedir ayuda al administrador</button>
+            </form>
+            <form id="completarRecuperacion">
+                <div class="input-group"><label for="codigoRecuperacion">Código del administrador</label><input id="codigoRecuperacion" autocomplete="one-time-code" pattern="[a-fA-F0-9]{32}" maxlength="32" required></div>
+                <div class="input-group"><label for="claveRecuperacion">Nueva contraseña</label><input id="claveRecuperacion" type="password" autocomplete="new-password" minlength="10" maxlength="256" required></div>
+                <button type="submit" class="btn-action">Cambiar contraseña con el código</button>
+            </form>
+        </details>
+        <details id="setupRecuperacion">
+            <summary>Configurar mi pregunta con mi contraseña actual</summary>
+            <form id="configurarRecuperacion">
+                <div class="input-group"><label for="claveConfigRecuperacion">Contraseña actual</label><input id="claveConfigRecuperacion" type="password" autocomplete="current-password" required></div>
+                <div class="input-group"><label for="cedulaConfigRecuperacion">Cédula</label><input id="cedulaConfigRecuperacion" maxlength="40" required></div>
+                <div class="input-group"><label for="preguntaConfigRecuperacion">Pregunta de seguridad</label><input id="preguntaConfigRecuperacion" maxlength="160" required></div>
+                <div class="input-group"><label for="respuestaConfigRecuperacion">Respuesta de seguridad</label><input id="respuestaConfigRecuperacion" type="password" autocomplete="off" maxlength="256" required></div>
+                <button type="submit" class="btn-action">Guardar pregunta de seguridad</button>
+            </form>
+        </details>
+        <p id="estadoRecuperacion" role="status"></p>
+        <button type="button" class="link-recuperar" onclick="this.closest('dialog').close()">Cerrar</button>
+    </dialog>
 
     <p class="login-security">
         <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -278,12 +330,15 @@
     </p>
 
     <script>
-        document.getElementById('formLogin').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const msg = document.getElementById('msgLogin');
-            const username = document.getElementById('loginUser').value.trim();
-            const password = document.getElementById('loginPassword').value;
-            const submit = e.currentTarget.querySelector('button[type="submit"]');
+        const changeDialog = document.getElementById('cambiarClaveTemporal');
+        const changeForm = document.getElementById('formCambiarClave');
+        const changeStatus = document.getElementById('estadoCambioClave');
+        const loginForm = document.getElementById('formLogin');
+        const loginStatus = document.getElementById('msgLogin');
+        const loginPassword = document.getElementById('loginPassword');
+        let temporaryCredentials = null;
+
+        async function authenticate(payload, submit, msg) {
             if (submit.disabled) return;
             submit.disabled = true;
             msg.textContent = '';
@@ -292,17 +347,22 @@
                 const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();
-                if (res.ok && data.success) {
+                if (data.requiereCambio) {
+                    temporaryCredentials = payload;
+                    loginPassword.value = '';
+                    changeStatus.textContent = '';
+                    changeDialog.showModal();
+                } else if (res.ok && data.success) {
+                    temporaryCredentials = null;
                     msg.dataset.state = 'success';
                     msg.style.color = '#10b981';
                     msg.textContent = 'Acceso concedido...';
                     const destino = data.rol === 'Mecanico' ? '/mobile.html' : '/dashboard.html';
                     window.location.replace(destino);
-                    return;
                 } else {
                     msg.dataset.state = 'error';
                     msg.style.color = '#ef4444';
@@ -315,33 +375,131 @@
                 msg.textContent = 'Error de conexión con el servidor.';
             }
             submit.disabled = false;
+        }
+
+        loginForm.addEventListener('submit', event => {
+            event.preventDefault();
+            authenticate({
+                username: document.getElementById('loginUser').value.trim(),
+                password: loginPassword.value
+            }, event.submitter, loginStatus);
         });
 
-        async function recuperarPasswordPrompt() {
-            const username = prompt('Usuario:');
-            const nombre = prompt('Nombre completo registrado:');
-            const cedula = prompt('Cédula registrada:');
-            if (!username || !nombre || !cedula) return;
+        changeForm.addEventListener('submit', event => {
+            event.preventDefault();
+            if (!temporaryCredentials) return;
+            const nuevaPassword = document.getElementById('claveNueva').value;
+            if (nuevaPassword !== document.getElementById('confirmarClaveNueva').value) {
+                changeStatus.textContent = 'Las contraseñas no coinciden.';
+                return;
+            }
+            authenticate({ ...temporaryCredentials, nuevaPassword }, event.submitter, changeStatus);
+        });
+
+        changeDialog.addEventListener('close', () => {
+            temporaryCredentials = null;
+            changeForm.reset();
+            loginPassword.focus();
+        });
+
+        const recoveryDialog = document.getElementById('recuperarCuenta');
+        const recoveryUser = document.getElementById('usuarioRecuperacion');
+        const recoveryStatus = document.getElementById('estadoRecuperacion');
+        const questionForm = document.getElementById('responderPregunta');
+        const questionPasswordForm = document.getElementById('cambiarClavePorPregunta');
+        let verifiedAnswerCode = '';
+        const recoveryIdentity = () => ({
+            nombre: document.getElementById('nombreRecuperacion').value.trim(),
+            cedula: document.getElementById('cedulaRecuperacion').value.trim()
+        });
+        function clearQuestion() {
+            questionForm.hidden = true;
+            questionForm.reset();
+            questionPasswordForm.hidden = true;
+            questionPasswordForm.reset();
+            verifiedAnswerCode = '';
+        }
+        for (const id of ['usuarioRecuperacion', 'nombreRecuperacion', 'cedulaRecuperacion']) {
+            document.getElementById(id).addEventListener('input', clearQuestion);
+        }
+        document.getElementById('abrirRecuperacion').addEventListener('click', () => {
+            recoveryUser.value = document.getElementById('loginUser').value.trim();
+            recoveryStatus.textContent = '';
+            recoveryDialog.showModal();
+        });
+        recoveryDialog.addEventListener('close', () => {
+            clearQuestion();
+            for (const id of ['buscarPregunta', 'completarRecuperacion', 'configurarRecuperacion']) document.getElementById(id).reset();
+            document.getElementById('ayudaRecuperacion').open = false;
+            document.getElementById('setupRecuperacion').open = false;
+        });
+
+        async function submitRecovery(event, action, extra = {}) {
+            event.preventDefault();
+            if (!recoveryUser.reportValidity()) return;
+            const username = recoveryUser.value.trim();
+            event.submitter.disabled = true;
             try {
-                const questionResponse = await fetch('/api/recuperacion-pregunta', {
+                const res = await fetch('/api/recuperaciones/' + action, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, nombre, cedula })
-                });
-                const question = await questionResponse.json();
-                if (!questionResponse.ok) return alert(question.mensaje || 'No se pudo validar la cuenta.');
-                const respuesta_seguridad = prompt(question.pregunta_seguridad);
-                const nuevaPassword = prompt('Nueva contraseña (mínimo 10 caracteres):');
-                if (!respuesta_seguridad || !nuevaPassword) return;
-                const res = await fetch('/api/recuperar-password', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, nombre, cedula, respuesta_seguridad, nuevaPassword })
+                    body: JSON.stringify({ username, ...extra })
                 });
                 const data = await res.json();
-                alert(data.mensaje || 'No se pudo procesar la solicitud.');
+                recoveryStatus.textContent = data.mensaje || '';
+                if (res.ok && ['pregunta', 'respuesta'].includes(action)) {
+                    const current = recoveryIdentity();
+                    if (!recoveryDialog.open || recoveryUser.value.trim() !== username || current.nombre !== extra.nombre || current.cedula !== extra.cedula) return;
+                    if (action === 'pregunta') {
+                        document.getElementById('preguntaRecuperacion').textContent = data.pregunta;
+                        questionForm.hidden = false;
+                        document.getElementById('respuestaRecuperacion').focus();
+                    } else {
+                        clearQuestion();
+                        verifiedAnswerCode = data.codigo;
+                        questionPasswordForm.hidden = false;
+                        document.getElementById('clavePorPregunta').focus();
+                    }
+                } else if (res.ok && action === 'configurar') {
+                    document.getElementById('configurarRecuperacion').reset();
+                    document.getElementById('setupRecuperacion').open = false;
+                } else if (res.ok && ['completar', 'cambiar-por-pregunta'].includes(action)) {
+                    recoveryDialog.close();
+                    document.getElementById('loginUser').value = username;
+                    document.getElementById('loginPassword').value = '';
+                    document.getElementById('msgLogin').textContent = data.mensaje;
+                    document.getElementById('loginPassword').focus();
+                } else if (res.status === 409 && action === 'cambiar-por-pregunta') {
+                    clearQuestion();
+                }
             } catch {
-                alert('Error al procesar la solicitud.');
+                recoveryStatus.textContent = 'No se pudo conectar con el servidor.';
+            } finally {
+                event.submitter.disabled = false;
             }
         }
+
+        document.getElementById('buscarPregunta').addEventListener('submit', event => {
+            clearQuestion();
+            submitRecovery(event, 'pregunta', recoveryIdentity());
+        });
+        questionForm.addEventListener('submit', event => submitRecovery(event, 'respuesta', {
+            ...recoveryIdentity(), respuesta_seguridad: document.getElementById('respuestaRecuperacion').value
+        }));
+        questionPasswordForm.addEventListener('submit', event => submitRecovery(event, 'cambiar-por-pregunta', {
+            codigo: verifiedAnswerCode,
+            nuevaPassword: document.getElementById('clavePorPregunta').value
+        }));
+        document.getElementById('configurarRecuperacion').addEventListener('submit', event => submitRecovery(event, 'configurar', {
+            password: document.getElementById('claveConfigRecuperacion').value,
+            cedula: document.getElementById('cedulaConfigRecuperacion').value,
+            pregunta_seguridad: document.getElementById('preguntaConfigRecuperacion').value,
+            respuesta_seguridad: document.getElementById('respuestaConfigRecuperacion').value
+        }));
+        document.getElementById('solicitarRecuperacion').addEventListener('submit', event => submitRecovery(event, 'solicitar'));
+        document.getElementById('completarRecuperacion').addEventListener('submit', event => submitRecovery(event, 'completar', {
+            codigo: document.getElementById('codigoRecuperacion').value.trim(),
+            nuevaPassword: document.getElementById('claveRecuperacion').value
+        }));
     </script>
 </body>
 </html>
