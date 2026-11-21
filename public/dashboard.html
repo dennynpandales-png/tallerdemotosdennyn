@@ -1423,7 +1423,6 @@
 
         #configuracion #formConfig,
         #configuracion #formBackup,
-        #configuracion #formRecuperacionCuenta,
         #configuracion #formCrearUsuario {
             min-width: 0;
             margin: 10px 0 16px;
@@ -1609,6 +1608,7 @@
 </style>
     <link rel="stylesheet" href="dashboard-refinements.css">
     <script src="/dispositivo.js"></script>
+    <link rel="stylesheet" href="operacion-taller.css">
 </head>
 <body id="bodyDashboard">
     <main class="desktop-required" id="avisoEscritorio" hidden>
@@ -1684,6 +1684,11 @@
             </div>
         </div>
 
+        <output id="avisoCitas" class="workshop-notice" hidden></output>
+        <section id="avisoRecuperaciones" class="workshop-notice recovery-alarm" data-admin-only hidden>
+            <output id="estadoAvisoRecuperaciones"></output>
+            <button type="button" class="btn-small" id="abrirRecuperaciones">Ver solicitudes</button>
+        </section>
         <section id="avisosOrdenTerminada" aria-live="polite" aria-atomic="true" hidden
             style="padding: 12px; border: 1px solid var(--accent); background: var(--bg-card);">
             <strong>Órdenes terminadas</strong>
@@ -1771,7 +1776,7 @@
                             </div>
                             <div class="form-grid">
                                 <div class="input-group"><label for="motoPlaca">Placa</label><input type="text" id="motoPlaca" placeholder="Ej. ABC12D" style="text-transform: uppercase;" required></div>
-                                <div class="input-group"><label for="motoMarca">Marca</label><input type="text" id="motoMarca" required></div>
+                                <div class="input-group"><label for="motoMarca">Marca</label><input type="text" id="motoMarca" list="marcasMoto" autocomplete="off" placeholder="🔍 Seleccionar marca" required><datalist id="marcasMoto"></datalist></div>
                                 <div class="input-group"><label for="motoModelo">Modelo / Línea</label><input type="text" id="motoModelo"></div>
                                 <div class="input-group"><label for="motoCilindraje">Cilindraje (cc)</label><input type="number" id="motoCilindraje" required></div>
                                 <div class="input-group"><label for="motoColor">Color</label><input type="text" id="motoColor"></div>
@@ -1816,7 +1821,8 @@
                 <h3 id="crearOrdenHeader">Crear Orden de Servicio</h3>
                 <form id="formOrden">
                     <div class="form-grid">
-                        <div class="input-group"><label for="ordenMotoId">Moto</label><select id="ordenMotoId" required onchange="sugerirManoDeObra()"><option value="">Seleccione moto...</option></select></div>
+                        <div class="input-group"><label for="buscarMotoOrden">Buscar moto para la orden</label><input type="search" id="buscarMotoOrden" placeholder="🔍 Placa, cédula o nombre" autocomplete="off"><div id="resultadosMotoOrden" class="workshop-results" hidden></div>
+                            <label for="ordenMotoId">Moto</label><select id="ordenMotoId" required onchange="sugerirManoDeObra()"><option value="">Seleccione moto...</option></select></div>
                         <div class="input-group"><label for="ordenMecanicoId">Mecánico Asignado</label><select id="ordenMecanicoId" required><option value="">Seleccione mecánico...</option></select></div>
                         <div class="input-group"><label for="ordenTipo">Tipo</label><select id="ordenTipo" required><option value="Preventivo">Preventivo</option><option value="Correctivo">Correctivo</option><option value="Predictivo">Predictivo</option></select></div>
                         <div class="input-group" data-admin-only><label for="ordenManoObra">Mano de Obra ($)</label><input type="number" id="ordenManoObra" value="0" required></div>
@@ -1839,7 +1845,7 @@
                             </div>
                             <div class="input-group">
                                 <label for="inputBuscadorRepuesto">Buscar Repuesto</label>
-                                <input type="text" id="inputBuscadorRepuesto" placeholder="🔍 Código, nombre..." autocomplete="off" oninput="filtrarRepuestosInput(this.value)">
+                                <input type="text" id="inputBuscadorRepuesto" placeholder="🔍 Código, nombre..." autocomplete="off">
                                 <input type="hidden" id="usoRepuestoId" required>
                                 <div id="sugerenciasRepuestos" class="autocomplete-suggestions"></div>
                             </div>
@@ -1878,19 +1884,29 @@
                     <div class="card-stats" style="flex:1;"><h3>Valor Total (Venta)</h3><p id="invValVenta" class="text-success" style="font-weight: 900;">$ 0</p></div>
                 </div>
                 <form id="formInventario">
-                    <div class="form-grid">
-                        <div class="input-group"><label for="invCodigo">Código / Referencia</label><input type="text" id="invCodigo" placeholder="Ej. REP-001" required></div>
-                        <div class="input-group"><label for="invNombre">Nombre del Repuesto</label><input type="text" id="invNombre" placeholder="Ej. Pastillas de freno" required></div>
-                        <div class="input-group"><label for="invStock">Stock Inicial</label><input type="number" id="invStock" value="10" required></div>
-                        <div class="input-group"><label for="invCosto">Precio Costo ($)</label><input type="number" id="invCosto" value="0" required></div>
-                        <div class="input-group"><label for="invVenta">Precio Venta ($)</label><input type="number" id="invVenta" value="0" required></div>
+                    <div class="input-group"><label for="buscarInventario">Buscar por código o nombre para adicionar existencias</label>
+                        <input type="search" id="buscarInventario" autocomplete="off" placeholder="🔍 Código o nombre">
+                        <div id="resultadosInventario" class="workshop-results" hidden></div>
                     </div>
-                    <button type="submit" class="btn-action">Guardar Repuesto</button>
+                    <input type="hidden" id="invId">
+                    <output id="invSeleccion" class="msg-status" hidden></output>
+                    <div class="form-grid">
+                        <div class="input-group"><label for="invTipo">Tipo de artículo</label><select id="invTipo"><option value="REP">Repuesto</option><option value="MO">Mano de obra</option></select></div>
+                        <div class="input-group"><label for="invCodigo">Referencia <span id="invPrefijo">REP-</span></label><input type="text" id="invCodigo" maxlength="60" placeholder="Automática si se deja en blanco"></div>
+                        <div class="input-group"><label for="invNombre">Nombre</label><input type="text" id="invNombre" maxlength="160" required></div>
+                        <div class="input-group" data-part-field><label for="invStock">Cantidad de entrada</label><input type="number" id="invStock" min="0" step="1" value="0" required></div>
+                        <div class="input-group" data-part-field><label for="invProveedor">Proveedor</label><input type="text" id="invProveedor" maxlength="160"></div>
+                        <div class="input-group" data-part-field><label for="invOrigen">Clasificación del repuesto</label><select id="invOrigen"><option value="">Sin especificar</option><option>Original</option><option>Genuino</option></select></div>
+                        <div class="input-group"><label for="invCosto">Precio de costo ($)</label><input type="number" id="invCosto" min="0" step="0.01" value="0" required></div>
+                        <div class="input-group"><label for="invVenta">Precio de venta ($)</label><input type="number" id="invVenta" min="0" step="0.01" placeholder="Pendiente"></div>
+                    </div>
+                    <button type="submit" id="guardarInventario" class="btn-action">Registrar artículo</button>
+                    <button type="button" id="nuevoInventario" class="btn-small" hidden>Nuevo artículo</button>
                     <output id="msgInventario" class="msg-status" aria-live="polite" aria-atomic="true"></output>
                 </form>
                 <div class="inventory-list-scroll">
                     <table>
-                        <thead><tr><th>ID</th><th>Código / Ref</th><th>Repuesto</th><th>Stock</th><th>Costo</th><th>Venta</th></tr></thead>
+                        <thead><tr><th>Código</th><th>Artículo</th><th>Stock</th><th>Proveedor</th><th>Clasificación</th><th>Precio de costo</th><th>Precio de venta</th><th>Acción</th></tr></thead>
                         <tbody id="tablaInventarioBody"></tbody>
                     </table>
                 </div>
@@ -1905,13 +1921,19 @@
                     </div>
                 </div>
 
-                <div class="form-grid" style="background: var(--bg-input); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px; align-items: flex-end;">
+                <form id="formCita" class="form-grid" style="background: var(--bg-input); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px; align-items: flex-end;">
+                    <div class="input-group"><label for="buscarCitaCliente">Buscar cliente y moto</label>
+                        <input type="search" id="buscarCitaCliente" autocomplete="off" placeholder="🔍 Cédula, nombre o placa">
+                        <div id="resultadosCitaCliente" class="workshop-results" hidden></div>
+                    </div>
                     <div class="input-group"><label for="citaCliente">Nombre del Cliente</label><input type="text" id="citaCliente" placeholder="Ej. Carlos Pérez" required></div>
                     <div class="input-group"><label for="citaPlaca">Placa de la Moto</label><input type="text" id="citaPlaca" placeholder="Ej. XYZ123" style="text-transform: uppercase;" required></div>
-                    <div class="input-group"><label for="citaFecha">Fecha y Hora</label><input type="datetime-local" id="citaFecha" required></div>
-                    <div class="input-group" style="grid-column: span 2;"><label for="citaMotivo">Trabajo / Motivo</label><input type="text" id="citaMotivo" placeholder="Ej. Sincronización" required></div>
-                    <div><button type="button" class="btn-action btn-action-success" onclick="guardarCita()">📅 Agendar</button></div>
-                </div>
+                    <div class="input-group"><label for="citaTelefono">WhatsApp</label><input type="tel" id="citaTelefono" autocomplete="tel"></div>
+                    <div class="input-group"><label for="citaFecha">Fecha y hora (Colombia)</label><input type="datetime-local" id="citaFecha" required></div>
+                    <div class="input-group" style="grid-column: span 2;"><label for="citaMotivo">Trabajo / Motivo</label><input type="text" id="citaMotivo" placeholder="Ej. Sincronización"></div>
+                    <div><button type="submit" class="btn-action btn-action-success" id="guardarCitaBtn">Agendar</button>
+                    <button type="button" class="btn-small" id="cancelarEdicionCita" hidden>Salir de edición</button></div>
+                </form>
                 <output id="msgCitaStatus" class="msg-status" style="margin-bottom: 8px;" aria-live="polite" aria-atomic="true"></output>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 4px;">
@@ -2080,11 +2102,15 @@
                         </div>
                         <div class="input-group">
                             <label for="confImpresoraSelect">Impresora</label>
-                            <select id="confImpresoraSelect" onchange="document.getElementById('confImpresora').value = this.value;">
+                            <select id="confImpresoraSelect">
                                 <option value="">Cargando impresoras...</option>
                             </select>
-                            <label for="confImpresora" class="input-label">Nombre de impresora</label>
-                            <input type="text" id="confImpresora" placeholder="O escribe el nombre..." style="margin-top: 3px;">
+                            <label for="confImpresoraFormato">Formato de papel</label>
+                            <select id="confImpresoraFormato"><option value="auto">Detectar automáticamente</option><option value="media-carta">Media carta</option><option value="58">Térmica 58 mm</option><option value="80">Térmica 80 mm</option></select>
+                        </div>
+                        <div class="input-group">
+                            <label for="confWhatsappAdmin">WhatsApp del administrador</label>
+                            <input type="tel" id="confWhatsappAdmin" autocomplete="off">
                         </div>
                     </div>
                     <button type="submit" class="btn-action">Guardar Configuración</button>
@@ -2122,27 +2148,20 @@
                 </div>
                 <output id="msgBackup" class="msg-status" aria-live="polite" aria-atomic="true"></output>
 
-                <h3 style="margin-top: 14px;">👥 Gestión de Personal (Usuarios y Permisos)</h3>
-                <form id="formRecuperacionCuenta" style="margin-bottom: 10px;">
-                    <h4>Configurar recuperación de esta cuenta</h4>
-                    <div class="form-grid">
-                        <div class="input-group"><label for="recoveryUsername">Usuario</label><input id="recoveryUsername" type="text" required autocomplete="username"></div>
-                        <div class="input-group"><label for="recoveryCurrentPassword">Contraseña actual</label><input id="recoveryCurrentPassword" type="password" required autocomplete="current-password"></div>
-                        <div class="input-group"><label for="recoveryCedula">Cédula</label><input id="recoveryCedula" type="text" required></div>
-                        <div class="input-group"><label for="recoveryQuestion">Pregunta de seguridad</label><input id="recoveryQuestion" type="text" required></div>
-                        <div class="input-group"><label for="recoveryAnswer">Respuesta de seguridad</label><input id="recoveryAnswer" type="password" required autocomplete="off"></div>
-                    </div>
-                    <button type="submit" class="btn-action">Guardar datos de recuperación</button>
-                    <output id="msgRecoveryConfig" class="msg-status" aria-live="polite" aria-atomic="true"></output>
-                </form>
+                <h3 style="margin-top: 14px;" id="gestionUsuarios">👥 Gestión de Personal (Usuarios y Permisos)</h3>
+                <h4 id="tituloSolicitudesRecuperacion">Solicitudes de recuperación</h4>
+                <div id="listaRecuperaciones"></div>
+                <output id="estadoRecuperaciones" aria-live="polite"></output>
+                <div id="entregarCodigoRecuperacion" hidden>
+                    <label id="instruccionCodigoRecuperacion" for="codigoAprobado">Código de recuperación</label>
+                    <input id="codigoAprobado" readonly autocomplete="off">
+                    <button type="button" id="ocultarCodigoAprobado" class="btn-small">Ocultar código</button>
+                </div>
                 <form id="formCrearUsuario" style="margin-bottom: 10px;">
                     <div class="form-grid">
                         <div class="input-group"><label for="nuevoUserNombre">Nombre</label><input type="text" id="nuevoUserNombre" required></div>
                         <div class="input-group"><label for="nuevoUserLogin">Usuario</label><input type="text" id="nuevoUserLogin" required autocomplete="username"></div>
                         <div class="input-group"><label for="nuevoUserPassword">Contraseña (mínimo 10 caracteres)</label><input type="password" id="nuevoUserPassword" required minlength="10" autocomplete="new-password"></div>
-                        <div class="input-group"><label for="nuevoUserCedula">Cédula para recuperación</label><input type="text" id="nuevoUserCedula" required></div>
-                        <div class="input-group"><label for="nuevoUserPregunta">Pregunta de seguridad</label><input type="text" id="nuevoUserPregunta" required></div>
-                        <div class="input-group"><label for="nuevoUserRespuesta">Respuesta de seguridad</label><input type="password" id="nuevoUserRespuesta" required autocomplete="off"></div>
                         <div class="input-group"><label for="nuevoUserRol">Rol</label><select id="nuevoUserRol"><option value="Mecanico">Mecánico</option><option value="Recepcionista">Recepcionista</option><option value="Administrador">Administrador</option></select></div>
                     </div>
                     <button type="submit" class="btn-action btn-action-info" style="margin-top: 6px;">Crear Usuario</button>
@@ -2158,7 +2177,7 @@
                 
                 <h3 class="text-danger" style="margin-top: 14px;">Zona de Peligro: Limpieza Total</h3>
                 <button class="btn-action btn-action-danger" style="padding: 5px 10px; font-size: 11px;" onclick="limpiarSistemaACero()">🗑️ Limpiar Todo a Cero</button>
-                <output id="msgLimpieza" class="msg-status" aria-live="polite" aria-atomic="true"></output>
+                <p id="estadoDestinoReinicio"></p>
             </div>
         </div>
 
@@ -2189,6 +2208,7 @@
             <div id="facturaDetalleContenido" style="background: var(--bg-input); padding: 8px; border-radius: 5px; margin-bottom: 8px; font-family: monospace; font-size: 11px; border: 1px solid var(--border-color);">Cargando...</div>
             <form id="formFacturar">
                 <input type="hidden" id="facturaOrdenId">
+                <div class="input-group"><label for="serviciosManoObra">Tarifa del catálogo</label><select id="serviciosManoObra"><option value="">Seleccionar servicio</option></select></div>
                 <div class="input-group" style="margin-bottom: 8px;"><label for="facturaManoObra">Valor de mano de obra ($)</label><input type="number" id="facturaManoObra" min="0" step="0.01" required oninput="calcularTotalModal()"></div>
                 <h3 id="facturaTotalModal" class="text-success" style="margin-bottom: 10px;">Total a Pagar: $ 0</h3>
                 <output id="estadoPreparacionFactura"></output>
@@ -2211,19 +2231,19 @@
     <div id="modalAdminPassword" class="modal">
         <div class="modal-content" style="max-width: 420px; border-top: 4px solid var(--accent);">
             <h2 style="color: var(--accent);">🔑 Restablecer Contraseña de Usuario</h2>
-            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Como Administrador, puede definir una nueva contraseña para cualquier usuario.</p>
+            <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;">Comparte la contraseña temporal con el usuario. El sistema le pedirá elegir una nueva al ingresar.</p>
             <input type="hidden" id="resetUserId">
             <div class="input-group" style="margin-bottom: 8px;">
                 <span class="field-caption">Usuario a Modificar:</span>
                 <div id="resetUserName" style="font-weight: 700; color: var(--accent); padding: 4px 0;">--</div>
             </div>
             <div class="input-group" style="margin-bottom: 8px;">
-                <label for="inputNuevaPassAdmin">Nueva Contraseña:</label>
-                <input type="password" id="inputNuevaPassAdmin" placeholder="Mínimo 4 caracteres" required autocomplete="new-password">
+                <label for="inputNuevaPassAdmin">Contraseña temporal</label>
+                <input type="password" id="inputNuevaPassAdmin" placeholder="Mínimo 10 caracteres" minlength="10" maxlength="256" required autocomplete="new-password">
             </div>
             <div class="input-group" style="margin-bottom: 12px;">
-                <label for="inputConfirmarPassAdmin">Confirmar Contraseña:</label>
-                <input type="password" id="inputConfirmarPassAdmin" placeholder="Repita la nueva contraseña" required autocomplete="new-password">
+                <label for="inputConfirmarPassAdmin">Confirmar contraseña temporal</label>
+                <input type="password" id="inputConfirmarPassAdmin" placeholder="Repite la contraseña temporal" required autocomplete="new-password">
             </div>
             <output id="msgResetPass" class="msg-status" style="margin-bottom: 10px;" aria-live="polite"></output>
             <div style="display: flex; gap: 8px; justify-content: flex-end;">
@@ -2266,6 +2286,32 @@
             </div>
         </form>
     </dialog>
+    <dialog class="exit-dialog" id="modalReinicio" aria-labelledby="tituloReinicio">
+        <h2 id="tituloReinicio">Limpiar todo a cero</h2>
+        <p>Se borrarán clientes, motos, órdenes, citas y artículos de inventario.</p>
+        <form id="pedirCodigoReinicio">
+            <label for="passwordReinicio">Tu contraseña de administrador</label>
+            <input type="password" id="passwordReinicio" autocomplete="current-password" required>
+            <button type="submit" class="btn-small">Enviar código por WhatsApp</button>
+        </form>
+        <form id="confirmarReinicio" hidden>
+            <label for="codigoReinicio">Código enviado al WhatsApp del administrador</label>
+            <input id="codigoReinicio" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+            <button type="submit" class="btn-small btn-action-danger">Validar y borrar registros</button>
+        </form>
+        <output id="estadoReinicio" class="msg-status" aria-live="polite"></output>
+        <button type="button" class="btn-small" onclick="this.closest('dialog').close()">Cerrar</button>
+    </dialog>
+    <dialog id="vistaFactura" class="invoice-dialog" aria-labelledby="tituloVistaFactura">
+        <div class="invoice-toolbar">
+            <h2 id="tituloVistaFactura">Vista previa de factura</h2>
+            <button type="button" class="btn-small" id="imprimirVistaFactura" disabled>Imprimir</button>
+            <button type="button" class="btn-small" id="abrirPdfFactura" hidden disabled>Abrir PDF</button>
+            <button type="button" class="btn-small" onclick="this.closest('dialog').close()">Cerrar</button>
+        </div>
+        <output id="estadoVistaFactura"></output>
+        <iframe id="documentoFactura" title="Documento de factura"></iframe>
+    </dialog>
     <dialog class="exit-dialog" id="modalEditarUsuario">
         <form id="formEditarUsuario">
             <h2>Editar usuario</h2>
@@ -2288,7 +2334,6 @@
         const esAdministrador = () => rolUser === 'Administrador';
 
         let tarifasGlobales = { t100: 30000, t200: 50000, t400: 80000, tMas: 120000 };
-        let inventarioCache = [];
         let ordenesAbiertasCache = [];
         let ordenesBusquedaCache = [];
         let reporteDetalladoCache = [];
@@ -2326,6 +2371,7 @@
         function iniciarSincronizacionSSE() {
             try {
                 const eventSource = new EventSource('/api/sync-events');
+                eventSource.addEventListener('connected', () => { if (esAdministrador()) cargarRecuperaciones(); });
                 eventSource.addEventListener('sesion_revocada', () => location.replace('/'));
                 eventSource.addEventListener('sync', (e) => {
                     try {
@@ -2344,23 +2390,45 @@
         }
 
         function manejarEventoSync(evento) {
-            if (!evento || !evento.tipo) return;
-            if (evento.tipo === 'alerta_stock') {
-                mostrarAlertaStockBanner(evento.data);
-            } else if (evento.tipo === 'alerta_stock_leida' || evento.tipo === 'alerta_stock_leida_todas') {
-                const banner = document.getElementById('bannerAlertaStock');
-                if (banner) banner.style.display = 'none';
-            } else if (evento.tipo === 'orden_terminada' && esPersonalAdministrativo()) {
-                mostrarAvisoOrdenTerminada(evento.data);
-            } else if (evento.tipo === 'foto_agregada' && esPersonalAdministrativo()) {
-                const id = Number(evento.data.orden_id);
-                const modal = document.getElementById('modalVerFotosOrden');
-                if (modal.style.display === 'flex' && Number(modal.dataset.ordenId) === id) {
-                    verFotosOrden(id, true);
-                }
-            } else if (evento.tipo === 'orden_actualizada' || evento.tipo === 'asignacion_actualizada') {
-                actualizarPestanaPorEvento();
+            switch (evento?.tipo) {
+                case 'sistema_reiniciado':
+                    location.reload();
+                    break;
+                case 'citas_actualizadas':
+                    cargarCitas();
+                    if (document.getElementById('inicio').classList.contains('active')) cargarMetricasDashboard();
+                    break;
+                case 'inventario_actualizado':
+                    if (esAdministrador()) cargarInventarioTabla();
+                    break;
+                case 'recuperacion_actualizada':
+                    if (esAdministrador()) cargarRecuperaciones();
+                    break;
+                case 'alerta_stock':
+                    mostrarAlertaStockBanner(evento.data);
+                    break;
+                case 'alerta_stock_leida':
+                case 'alerta_stock_leida_todas':
+                    document.getElementById('bannerAlertaStock').style.display = 'none';
+                    break;
+                case 'orden_terminada':
+                    if (esPersonalAdministrativo()) mostrarAvisoOrdenTerminada(evento.data);
+                    break;
+                case 'foto_agregada':
+                    actualizarFotosAbiertas(evento.data);
+                    break;
+                case 'orden_actualizada':
+                case 'asignacion_actualizada':
+                    actualizarPestanaPorEvento();
+                    break;
             }
+        }
+
+        function actualizarFotosAbiertas(data) {
+            if (!esPersonalAdministrativo()) return;
+            const id = Number(data.orden_id);
+            const modal = document.getElementById('modalVerFotosOrden');
+            if (modal.style.display === 'flex' && Number(modal.dataset.ordenId) === id) verFotosOrden(id, true);
         }
 
         function mostrarAvisoOrdenTerminada(data) {
@@ -2476,7 +2544,7 @@
                 const resD = await fetch(`/api/ordenes/${ordenId}/detalles`);
                 if (!resD.ok) throw new Error('No se pudieron cargar los repuestos.');
                 const detalles = await resD.json();
-                const resConf = await fetch('/api/config');
+                const resConf = await fetch(esAdministrador() ? '/api/config' : '/api/identidad');
                 const conf = await resConf.json();
 
                 const tienePrecios = esAdministrador();
@@ -2530,17 +2598,17 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
 
         async function aplicarConfigVisual() {
             try {
-                const res = await fetch('/api/config');
+                const res = await fetch(esAdministrador() ? '/api/config' : '/api/identidad');
                 const conf = await res.json();
                 if (conf.nombre_taller) {
                     document.getElementById('headerTitulo').textContent = `🏍️ ${conf.nombre_taller}`;
                     document.title = conf.nombre_taller;
                 }
                 if (conf.tema) cambiarTemaVisual(conf.tema);
-                if (conf.tarifa_100) tarifasGlobales.t100 = Number(conf.tarifa_100);
-                if (conf.tarifa_200) tarifasGlobales.t200 = Number(conf.tarifa_200);
-                if (conf.tarifa_400) tarifasGlobales.t400 = Number(conf.tarifa_400);
-                if (conf.tarifa_mas) tarifasGlobales.tMas = Number(conf.tarifa_mas);
+                const camposTarifas = { tarifa_100: 't100', tarifa_200: 't200', tarifa_400: 't400', tarifa_mas: 'tMas' };
+                for (const [campo, tarifa] of Object.entries(camposTarifas)) {
+                    if (conf[campo]) tarifasGlobales[tarifa] = Number(conf[campo]);
+                }
                 if (conf.backup_path) document.getElementById('confBackupPath').value = conf.backup_path;
                 if (conf.backup_interval_min && document.getElementById('confBackupInterval')) {
                     document.getElementById('confBackupInterval').value = conf.backup_interval_min;
@@ -2624,7 +2692,7 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             if (idTab === 'inicio') cargarMetricasDashboard();
             if (idTab === 'citas') cargarCitas();
             if (idTab === 'reportes') cargarReporteDetallado();
-            if (idTab === 'configuracion') { cargarConfig(); cargarImpresorasSistema(); cargarUsuariosSistema(); }
+            if (idTab === 'configuracion') { cargarConfig(); cargarUsuariosSistema(); }
             if (idTab === 'facturacion') cargarOrdenesFacturacion();
         }
 
@@ -2638,7 +2706,6 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                 if (!response.ok) return location.replace('/');
                 const session = await response.json();
                 rolUser = session.rol;
-                document.getElementById('recoveryUsername').value = session.username || '';
                 if (rolUser === 'Mecanico') return location.replace('/mobile.html');
                 if (!esPersonalAdministrativo()) return location.replace('/');
                 if (esDispositivoTactilPortatil()) {
@@ -2655,7 +2722,8 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                 aplicarConfigVisual();
                 cargarMetricasDashboard();
                 cargarMotosTabla();
-                cargarCitas();
+                iniciarAgenda();
+                if (esAdministrador()) cargarRecuperaciones();
                 cargarDatosSelectOrdenes();
                 cargarOrdenesTabla();
                 if (esAdministrador()) cargarInventarioTabla();
@@ -2708,11 +2776,11 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
 
                 const resCitas = await fetch('/api/citas');
                 const citas = await resCitas.json();
-                document.getElementById('statCitasHoy').textContent = citas.filter(c => c.estado !== 'Atendida').length;
+                document.getElementById('statCitasHoy').textContent = citas.filter(c => c.estado === 'Pendiente' && c.fecha_cita === fechaColombia()).length;
                 
                 const latCitas = document.getElementById('lateralCitasContainer');
                 latCitas.innerHTML = '';
-                const citasPendientes = citas.filter(c => c.estado !== 'Atendida');
+                const citasPendientes = citas.filter(c => c.estado === 'Pendiente');
                 if (citasPendientes.length === 0) {
                     latCitas.innerHTML = '<div class="agenda-item-box">No hay citas pendientes.</div>';
                 } else {
@@ -2775,7 +2843,7 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                     document.getElementById('motoKm').value = exacto.kilometraje || '';
 
                     buscarGlobal();
-                    verificarCitasPendientesParaBusqueda(exacto.cliente_cedula, exacto.placa);
+                    verificarCitasPendientesParaBusqueda(exacto.placa);
                 } else {
                     lblEstado.textContent = '🆕 Cliente Nuevo (Se registrará al guardar)';
                     lblEstado.style.color = 'var(--info-color)';
@@ -2829,19 +2897,14 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             document.getElementById('msgMoto').textContent = 'Formulario limpio.';
         }
 
-        async function verificarCitasPendientesParaBusqueda(cedula, placa) {
+        async function verificarCitasPendientesParaBusqueda(placa) {
             try {
                 const res = await fetch('/api/citas');
                 const citas = await res.json();
                 const panelCita = document.getElementById('panelCitaEncontrada');
                 const textoCita = document.getElementById('textoDetalleCita');
                 const btnAtender = document.getElementById('btnAtenderCitaDirecta');
-                const citaPendiente = citas.find(c => 
-                    c.estado !== 'Atendida' && (
-                        (c.moto_placa && c.moto_placa.toUpperCase() === placa.toUpperCase()) ||
-                        (c.cliente_nombre && c.cliente_nombre.toLowerCase().includes(cedula.toLowerCase()))
-                    )
-                );
+                const citaPendiente = citas.find(c => c.estado === 'Pendiente' && c.moto_placa?.toUpperCase() === placa.toUpperCase());
                 if (citaPendiente) {
                     textoCita.textContent = `Cliente: ${citaPendiente.cliente_nombre} | Moto: ${citaPendiente.moto_placa} | Trabajo: "${citaPendiente.motivo}"`;
                     btnAtender.onclick = () => convertirCitaAOrden(citaPendiente.id, citaPendiente.moto_placa, citaPendiente.motivo);
@@ -2986,93 +3049,6 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
 
         function cerrarHistorialModal() { document.getElementById('historialModal').style.display = 'none'; }
 
-        // INVENTARIO
-        document.getElementById('formInventario').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const res = await fetch('/api/inventario', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    codigo: document.getElementById('invCodigo').value,
-                    nombre: document.getElementById('invNombre').value,
-                    stock: document.getElementById('invStock').value,
-                    precio_costo: document.getElementById('invCosto').value,
-                    precio_venta: document.getElementById('invVenta').value
-                })
-            });
-            if (res.ok) { 
-                document.getElementById('formInventario').reset(); 
-                cargarInventarioTabla(); 
-                cargarDatosSelectOrdenes(); 
-            }
-        });
-
-        async function cargarInventarioTabla() {
-            try {
-                const res = await fetch('/api/inventario');
-                const items = await res.json();
-                inventarioCache = items;
-                const tbody = document.getElementById('tablaInventarioBody');
-                if (!tbody) return;
-                tbody.innerHTML = '';
-                let totalCosto = 0, totalVenta = 0;
-                items.forEach(i => {
-                    totalCosto += (i.stock * i.precio_costo);
-                    totalVenta += (i.stock * i.precio_venta);
-                    tbody.innerHTML += `<tr><td>#${i.id}</td><td><b>${i.codigo || 'N/A'}</b></td><td><strong>${i.nombre}</strong></td><td>${i.stock}</td><td>$ ${Number(i.precio_costo).toLocaleString()}</td><td>$ ${Number(i.precio_venta).toLocaleString()}</td></tr>`;
-                });
-                document.getElementById('invValCosto').textContent = `$ ${totalCosto.toLocaleString()}`;
-                document.getElementById('invValVenta').textContent = `$ ${totalVenta.toLocaleString()}`;
-            } catch (error) { reportarErrorUI('carga de inventario', error, 'No se pudo cargar el inventario.', 'msgInventario'); }
-        }
-
-        // BUSCADOR DE REPUESTOS
-        function filtrarRepuestosInput(texto, inputIdValue = 'usoRepuestoId', suggestionsId = 'sugerenciasRepuestos') {
-            const contenedorSugerencias = document.getElementById(suggestionsId);
-            const inputId = document.getElementById(inputIdValue);
-            
-            if (!texto.trim()) {
-                contenedorSugerencias.style.display = 'none';
-                inputId.value = '';
-                return;
-            }
-
-            const query = texto.toLowerCase();
-            const coincidencias = inventarioCache.filter(item => 
-                item.nombre.toLowerCase().includes(query) || 
-                (item.codigo && item.codigo.toLowerCase().includes(query)) ||
-                item.id.toString() === query
-            );
-
-            if (coincidencias.length === 0) {
-                contenedorSugerencias.textContent = 'No se encontraron repuestos';
-                contenedorSugerencias.style.display = 'block';
-                return;
-            }
-
-            const fragment = document.createDocumentFragment();
-            coincidencias.forEach((item) => {
-                const opcion = document.createElement('button');
-                opcion.type = 'button';
-                opcion.className = 'suggestion-item';
-                const precio = !esAdministrador() ? '' : ` - $${Number(item.precio_venta).toLocaleString()}`;
-                opcion.textContent = `${item.nombre} [Ref: ${item.codigo || 'N/A'}] - Stock: ${item.stock}${precio}`;
-                opcion.addEventListener('click', () => {
-                    seleccionarRepuestoFiltro(item.id, item.nombre, item.codigo, item.stock, inputIdValue, suggestionsId);
-                });
-                fragment.append(opcion);
-            });
-
-            contenedorSugerencias.replaceChildren(fragment);
-            contenedorSugerencias.style.display = 'block';
-        }
-
-        function seleccionarRepuestoFiltro(id, nombre, codigo, stock, inputIdValue = 'usoRepuestoId', suggestionsId = 'sugerenciasRepuestos') {
-            const input = document.getElementById('inputBuscadorRepuesto');
-            input.value = `${nombre} (${codigo || 'N/A'}) [Stock: ${stock}]`;
-            document.getElementById(inputIdValue).value = id;
-            document.getElementById(suggestionsId).style.display = 'none';
-        }
-
         let listaMotosCache = [];
 
         async function cargarDatosSelectOrdenes() {
@@ -3123,8 +3099,6 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                     });
                 });
 
-                const resInv = await fetch('/api/inventario');
-                inventarioCache = await resInv.json();
             } catch (error) { reportarErrorUI('datos para órdenes', error, 'No se pudieron cargar los datos de las órdenes.', 'msgOrden'); }
         }
 
@@ -3452,78 +3426,6 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
         });
 
         // CITAS Y AGENDAMIENTO
-        async function cargarCitas() {
-            try {
-                const res = await fetch('/api/citas');
-                const citas = await res.json();
-                const tbody = document.getElementById('tablaCitasBody');
-                if (!tbody) return;
-                tbody.innerHTML = '';
-                if (!citas || citas.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No hay citas agendadas.</td></tr>`;
-                    return;
-                }
-                citas.forEach(c => {
-                    const esAtendida = c.estado === 'Atendida';
-                    tbody.innerHTML += `
-                        <tr>
-                            <td>#${c.id}</td>
-                            <td><strong>${escaparHTML(c.cliente_nombre)}</strong></td>
-                            <td>${escaparHTML(c.moto_placa)}</td>
-                            <td>${escaparHTML(c.fecha_cita)} ${escaparHTML(c.hora_cita || '')}</td>
-                            <td>${escaparHTML(c.motivo)}</td>
-                            <td><span class="badge ${esAtendida ? 'badge-preventivo' : 'badge-predictivo'}">${escaparHTML(c.estado)}</span></td>
-                            <td style="text-align: center;">
-                                ${!esAtendida ? `<button class="btn-small btn-action-info" data-ingresar-cita="${Number(c.id)}">🚀 Ingresar</button>` : `<span style="font-size:10px;">Atendida</span>`}
-                            </td>
-                        </tr>
-                    `;
-                });
-                for (const button of tbody.querySelectorAll('[data-ingresar-cita]')) {
-                    const cita = citas.find(item => Number(item.id) === Number(button.dataset.ingresarCita));
-                    if (cita) button.onclick = () => convertirCitaAOrden(cita.id, cita.moto_placa, cita.motivo);
-                }
-            } catch (error) { reportarErrorUI('carga de citas', error, 'No se pudo cargar la agenda.', 'msgCitaStatus'); }
-        }
-
-        async function guardarCita() {
-            const cliente_nombre = document.getElementById('citaCliente').value.trim();
-            const moto_placa = document.getElementById('citaPlaca').value.trim().toUpperCase();
-            const fecha_hora = document.getElementById('citaFecha').value;
-            const motivo = document.getElementById('citaMotivo').value.trim();
-            const msgStatus = document.getElementById('msgCitaStatus');
-
-            if (!cliente_nombre || !moto_placa || !fecha_hora || !motivo) {
-                msgStatus.style.color = 'var(--danger-color)';
-                msgStatus.textContent = '⚠️ Complete todos los campos.';
-                return;
-            }
-
-            const [fecha_cita, hora_cita] = fecha_hora.split('T');
-
-            try {
-                const res = await fetch('/api/citas', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cliente_nombre, moto_placa, fecha_cita, hora_cita, motivo })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    msgStatus.style.color = 'var(--success-color)';
-                    msgStatus.textContent = '✨ Cita agendada con éxito.';
-                    document.getElementById('citaCliente').value = '';
-                    document.getElementById('citaPlaca').value = '';
-                    document.getElementById('citaFecha').value = '';
-                    document.getElementById('citaMotivo').value = '';
-                    cargarCitas();
-                    cargarMetricasDashboard();
-                } else {
-                    msgStatus.style.color = 'var(--danger-color)';
-                    msgStatus.textContent = data.mensaje || 'Error al programar la cita.';
-                }
-            } catch (error) { reportarErrorUI('creación de cita', error, 'No se pudo programar la cita.', 'msgCitaStatus'); }
-        }
-
         function convertirCitaAOrden(citaId, placa, motivoCita) {
             ingresoCita = { id: citaId, motivo: motivoCita };
             document.getElementById('tituloAsignacion').textContent = `Ingresar al taller · ${placa}`;
@@ -3573,12 +3475,17 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             const resD = await fetch(`/api/ordenes/${ordenId}/detalles`);
             detallesCache = await resD.json();
 
-            let htmlDetalles = `<b>Moto:</b> ${escaparHTML(ordenSeleccionadaCache.moto_placa)} | <b>Cliente:</b> ${escaparHTML(ordenSeleccionadaCache.cliente_nombre)}<br><b>Trabajos:</b> ${escaparHTML(ordenSeleccionadaCache.trabajo_realizado || 'N/A')}<hr><b>Repuestos:</b><br>`;
+            let htmlDetalles = `<b>Moto:</b> ${escaparHTML(ordenSeleccionadaCache.moto_placa)} | <b>Cliente:</b> ${escaparHTML(ordenSeleccionadaCache.cliente_nombre)}<br><b>Trabajos:</b> ${escaparHTML(ordenSeleccionadaCache.trabajo_realizado || 'N/A')}<br><b>Mano de obra reportada:</b> ${escaparHTML(ordenSeleccionadaCache.mano_obra_reporte || 'Sin reporte')}<hr><b>Repuestos:</b><br>`;
             if (detallesCache.length === 0) htmlDetalles += `- Ninguno<br>`;
-            else detallesCache.forEach(d => htmlDetalles += `- ${escaparHTML(d.repuesto_nombre)} (${d.cantidad}x) : $ ${(d.cantidad * d.precio_unitario).toLocaleString()}<br>`);
+            else detallesCache.forEach(d => htmlDetalles += `- ${escaparHTML(d.repuesto_nombre)} (${d.cantidad}x) · ${d.precio_unitario > 0 ? '$ ' + (d.cantidad * d.precio_unitario).toLocaleString() : 'Precio de venta pendiente en Inventario'}<br>`);
             
             document.getElementById('facturaDetalleContenido').innerHTML = htmlDetalles;
-            document.getElementById('facturaManoObra').value = ordenSeleccionadaCache.costo_mano_obra || 0;
+            document.getElementById('serviciosManoObra').value = '';
+            const { costo_mano_obra, mano_obra_sugerida, mano_obra_confirmada, mano_obra_reporte } = ordenSeleccionadaCache;
+            const precioBase = mano_obra_reporte ? '' : costo_mano_obra || '';
+            document.getElementById('facturaManoObra').value = mano_obra_confirmada
+                ? costo_mano_obra
+                : (mano_obra_sugerida ?? precioBase);
             document.getElementById('estadoPreparacionFactura').textContent = ordenSeleccionadaCache.mano_obra_confirmada ? 'Factura preparada para el cobro.' : '';
             calcularTotalModal();
             document.getElementById('facturaModal').style.display = 'flex';
@@ -3588,11 +3495,17 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
         function calcularTotalModal() {
             let totalRepuestos = 0;
             detallesCache.forEach(d => totalRepuestos += (d.cantidad * d.precio_unitario));
-            const manoObra = Number(document.getElementById('facturaManoObra').value || 0);
-            document.getElementById('facturaTotalModal').textContent = `Total a Pagar: $ ${(totalRepuestos + manoObra).toLocaleString()}`;
             const input = document.getElementById('facturaManoObra');
+            const manoObra = Number(input.value);
+            const faltanPrecios = detallesCache.some(detalle => {
+                const precio = Number(detalle.precio_unitario);
+                return Number.isNaN(precio) || precio <= 0;
+            });
+            document.getElementById('facturaTotalModal').textContent = faltanPrecios || !input.validity.valid
+                ? 'Total pendiente de precios'
+                : `Total a pagar: $ ${(totalRepuestos + manoObra).toLocaleString()}`;
             document.getElementById('cobrarFactura').disabled = !ordenSeleccionadaCache?.mano_obra_confirmada ||
-                !input.validity.valid || manoObra !== Number(ordenSeleccionadaCache.costo_mano_obra);
+                faltanPrecios || !input.validity.valid || manoObra !== Number(ordenSeleccionadaCache.costo_mano_obra);
         }
 
         function cerrarModal() { document.getElementById('facturaModal').style.display = 'none'; }
@@ -3627,48 +3540,6 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                 calcularTotalModal();
             }
         });
-
-        async function imprimirFactura(ordenId) {
-            const resOrdenes = await fetch(`/api/ordenes?buscar=${ordenId}`);
-            const ordenes = await resOrdenes.json();
-            const orden = ordenes.find(o => o.id == ordenId);
-            if (!orden) return;
-            const resDetalles = await fetch(`/api/ordenes/${ordenId}/detalles`);
-            const detalles = await resDetalles.json();
-            const resConf = await fetch('/api/config');
-            const conf = await resConf.json();
-
-            let totalRepuestos = 0; let itemsHtml = '';
-            detalles.forEach(d => {
-                const sub = d.cantidad * d.precio_unitario;
-                totalRepuestos += sub;
-                itemsHtml += `<tr><td>${escaparHTML(d.repuesto_nombre)} (${d.cantidad}x)</td><td style="text-align:right;">$ ${sub.toLocaleString()}</td></tr>`;
-            });
-            const manoObra = Number(orden.costo_mano_obra || 0);
-            const totalGeneral = totalRepuestos + manoObra;
-
-            const ventana = window.open('', '_blank', 'width=450,height=600');
-            ventana.document.write(`<html><head><title>Factura #${orden.id}</title>    <link rel="stylesheet" href="dashboard-refinements.css">
-</head>
-            <body style="font-family:sans-serif; font-size:11px; padding:10px;">
-                <div style="text-align:center;">
-                    <h3>${escaparHTML(conf.nombre_taller || 'HIDEP-SOFT-SG - Taller de Motos')}</h3>
-                    <p>NIT: ${escaparHTML(conf.nit_taller || '000000')} | Tel: ${escaparHTML(conf.telefono_taller || 'N/A')}</p>
-                    <p style="font-size:9px; color:#555;">HIDEP-SOFT-SG</p><hr>
-                    <b>FACTURA DE VENTA #${orden.id}</b>
-                </div>
-                <p><b>Cliente:</b> ${escaparHTML(orden.cliente_nombre)} (CC: ${escaparHTML(orden.cliente_cedula)})</p>
-                <p><b>Moto:</b> ${escaparHTML(orden.moto_marca)} - Placa: <b>${escaparHTML(orden.moto_placa)}</b></p>
-                <p><b>Trabajos:</b> ${escaparHTML(orden.trabajo_realizado || 'N/A')}</p><hr>
-                <table style="width:100%; border-collapse:collapse;">
-                    <tr><td>Mano de Obra</td><td style="text-align:right;">$ ${manoObra.toLocaleString()}</td></tr>
-                    ${itemsHtml}
-                </table><hr>
-                <h3 style="text-align:right;">TOTAL: $ ${totalGeneral.toLocaleString()}</h3>
-            </body></html>`);
-            ventana.document.close();
-            ventana.print();
-        }
 
         function actualizarTotalesReporte(t) {
             const statMano = document.getElementById('statMano');
@@ -3834,9 +3705,9 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             const pass2 = document.getElementById('inputConfirmarPassAdmin').value;
             const msg = document.getElementById('msgResetPass');
 
-            if (!pass1 || pass1.length < 4) {
+            if (pass1.trim().length < 10 || pass1.length > 256) {
                 msg.style.color = 'var(--danger-color)';
-                msg.textContent = 'La contraseña debe tener al menos 4 caracteres.';
+                msg.textContent = 'La contraseña temporal debe tener entre 10 y 256 caracteres.';
                 return;
             }
             if (pass1 !== pass2) {
@@ -3979,13 +3850,14 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             document.getElementById('modalVerFotosOrden').style.display = 'none';
         }
 
-        async function cargarImpresorasSistema() {
+        async function cargarImpresorasSistema(guardada) {
             try {
-                const res = await fetch('/api/impresoras');
-                const impresoras = await res.json();
+                const electron = typeof require === 'function' && typeof process !== 'undefined' && process.versions?.electron ? require('electron') : null;
+                const impresoras = electron ? await electron.ipcRenderer.invoke('factura:impresoras') : [];
                 const select = document.getElementById('confImpresoraSelect');
-                select.innerHTML = '<option value="">Seleccione impresora...</option>';
-                impresoras.forEach(imp => select.innerHTML += `<option value="${imp}">${imp}</option>`);
+                select.replaceChildren(new Option('Abrir PDF y elegir impresora', ''), ...impresoras.map(item => new Option(item.label, item.name)));
+                if (guardada && !impresoras.some(item => item.name === guardada)) select.add(new Option(guardada + ' (guardada)', guardada));
+                select.value = guardada || '';
             } catch (error) { reportarErrorUI('carga de impresoras', error, 'No se pudieron cargar las impresoras.', 'msgConfig'); }
         }
 
@@ -3995,10 +3867,18 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             document.getElementById('confNombre').value = conf.nombre_taller || '';
             document.getElementById('confNit').value = conf.nit_taller || '';
             document.getElementById('confTelefono').value = conf.telefono_taller || '';
+            const whatsappAdmin = document.getElementById('confWhatsappAdmin');
+            whatsappAdmin.value = conf.whatsapp_admin || (conf.whatsapp_admin_configurado ? '' : conf.telefono_taller || '');
+            whatsappAdmin.placeholder = conf.whatsapp_admin_configurado ? 'Definido en el servidor' : 'Ej. 300 123 4567';
+            whatsappAdmin.readOnly = conf.whatsapp_admin_configurado;
+            document.getElementById('estadoDestinoReinicio').textContent = conf.whatsapp_admin_configurado
+                ? 'WhatsApp del administrador configurado. Para cambiar el destino, usa WHATSAPP_ADMIN_NUMBER en el servidor.'
+                : 'Guarda el WhatsApp del administrador para habilitar el envío del código de reinicio.';
             document.getElementById('confEmail').value = conf.email_taller || '';
             document.getElementById('confDireccion').value = conf.direccion_taller || '';
             document.getElementById('confTema').value = conf.tema === 'light' ? 'light-amber' : (conf.tema || 'dark');
-            document.getElementById('confImpresora').value = conf.impresora_nombre || '';
+            document.getElementById('confImpresoraFormato').value = conf.impresora_formato || 'auto';
+            await cargarImpresorasSistema(conf.impresora_nombre);
             if (conf.backup_path) document.getElementById('confBackupPath').value = conf.backup_path;
             if (conf.backup_interval_min && document.getElementById('confBackupInterval')) {
                 document.getElementById('confBackupInterval').value = conf.backup_interval_min;
@@ -4019,39 +3899,18 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                     email_taller: document.getElementById('confEmail').value,
                     direccion_taller: document.getElementById('confDireccion').value,
                     tema: document.getElementById('confTema').value,
-                    impresora_nombre: document.getElementById('confImpresora').value
+                    impresora_nombre: document.getElementById('confImpresoraSelect').value,
+                    impresora_formato: document.getElementById('confImpresoraFormato').value,
+                    whatsapp_admin: document.getElementById('confWhatsappAdmin').value
                 })
             });
             if (res.ok) {
                 const msg = document.getElementById('msgConfig');
                 if (msg) { msg.style.color = 'var(--success-color)'; msg.textContent = 'Configuración guardada exitosamente.'; }
                 aplicarConfigVisual();
-            }
-        });
-
-        const recoveryForm = document.getElementById('formRecuperacionCuenta');
-        recoveryForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const message = document.getElementById('msgRecoveryConfig');
-            const payload = {
-                username: document.getElementById('recoveryUsername').value.trim(),
-                password: document.getElementById('recoveryCurrentPassword').value,
-                cedula: document.getElementById('recoveryCedula').value.trim(),
-                pregunta_seguridad: document.getElementById('recoveryQuestion').value.trim(),
-                respuesta_seguridad: document.getElementById('recoveryAnswer').value.trim()
-            };
-            try {
-                const response = await fetch('/api/seguridad/recuperacion-configurar', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                message.style.color = response.ok ? 'var(--success-color)' : 'var(--danger-color)';
-                message.textContent = result.mensaje || 'No se pudo configurar la recuperación.';
-                if (response.ok) document.getElementById('recoveryCurrentPassword').value = '';
-            } catch (error) {
-                console.error('Error al configurar la recuperación de contraseña:', error);
-                message.style.color = 'var(--danger-color)';
-                message.textContent = 'No se pudo conectar con el servidor.';
+                cargarConfig();
+            } else {
+                document.getElementById('msgConfig').textContent = (await res.json()).mensaje || 'No se pudo guardar la configuración.';
             }
         });
 
@@ -4137,7 +3996,7 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                 usuarios.forEach(u => {
                     const esAdmin = (rolUser === 'Administrador');
                     const btnResetPass = esAdmin 
-                        ? `<button type="button" class="btn-small" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; font-weight: 700; margin-right: 6px;" onclick="abrirModalResetPassword(${u.id}, '${escaparHTML(u.nombre)}')">🔑 Cambiar Contraseña</button>` 
+                        ? `<button type="button" class="btn-small" data-restablecer-usuario="${Number(u.id)}">🔑 Restablecer contraseña</button>`
                         : '';
                     const btnEditar = `<button type="button" class="btn-small" data-editar-usuario="${u.id}">Editar</button>`;
                     const btnEliminar = (u.username !== 'admin') 
@@ -4155,6 +4014,10 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                 });
                 tbody.querySelectorAll('[data-editar-usuario]').forEach(button => {
                     button.onclick = () => abrirEdicionUsuario(usuarios.find(user => Number(user.id) === Number(button.dataset.editarUsuario)));
+                });
+                tbody.querySelectorAll('[data-restablecer-usuario]').forEach(button => {
+                    const usuario = usuarios.find(user => Number(user.id) === Number(button.dataset.restablecerUsuario));
+                    button.onclick = () => abrirModalResetPassword(usuario.id, usuario.nombre);
                 });
             } catch (error) { reportarErrorUI('carga de usuarios', error, 'No se pudo cargar la lista de usuarios.', 'msgUsuario'); }
         }
@@ -4205,14 +4068,11 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
                 const nombre = document.getElementById('nuevoUserNombre').value;
                 const username = document.getElementById('nuevoUserLogin').value;
                 const password = document.getElementById('nuevoUserPassword').value;
-                const cedula = document.getElementById('nuevoUserCedula').value.trim();
-                const pregunta_seguridad = document.getElementById('nuevoUserPregunta').value.trim();
-                const respuesta_seguridad = document.getElementById('nuevoUserRespuesta').value.trim();
                 const rol = document.getElementById('nuevoUserRol').value;
                 try {
                     const res = await fetch('/api/usuarios', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ nombre, username, password, rol, cedula, pregunta_seguridad, respuesta_seguridad })
+                        body: JSON.stringify({ nombre, username, password, rol })
                     });
                     const data = await res.json();
                     if (res.ok) {
@@ -4228,7 +4088,8 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
 
         function abrirSecurityModal(titulo, desc, callback) {
             if (rolUser !== 'Administrador') { alert('⛔ Solo el Administrador puede realizar esta acción.'); return; }
-            generatedSecurityCode = Math.floor(1000 + Math.random() * 9000);
+            const random = crypto.getRandomValues(new Uint32Array(1));
+            generatedSecurityCode = 1000 + random[0] % 9000;
             document.getElementById('securityModalTitle').textContent = titulo;
             document.getElementById('securityModalDesc').textContent = desc;
             document.getElementById('securityTargetCode').textContent = generatedSecurityCode;
@@ -4238,15 +4099,22 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             document.getElementById('securityModal').style.display = 'flex';
         }
 
-        function cerrarSecurityModal() { document.getElementById('securityModal').style.display = 'none'; pendingSecurityAction = null; }
+        function cerrarSecurityModal() {
+            document.getElementById('securityModal').style.display = 'none';
+            document.getElementById('securityInputPassword').value = '';
+            pendingSecurityAction = null;
+            generatedSecurityCode = 0;
+        }
 
         async function ejecutarAccionSegura() {
+            const action = pendingSecurityAction;
+            if (!action) return;
             const inputCode = document.getElementById('securityInputCode').value.trim();
             const password = document.getElementById('securityInputPassword').value;
             if (inputCode !== generatedSecurityCode.toString()) { alert('❌ Código incorrecto.'); return; }
             if (!password) { alert('❌ Ingrese contraseña.'); return; }
             cerrarSecurityModal();
-            if (pendingSecurityAction) await pendingSecurityAction(password);
+            await action(password);
         }
 
         function eliminarUsuario(id) {
@@ -4263,21 +4131,7 @@ ${link ? '📷 Consulta el historial y las evidencias usando el número de orden
             });
         }
 
-        function limpiarSistemaACero() {
-            abrirSecurityModal('🔐 Restauración Total a Cero', '⚠️ ADVERTENCIA: Se borrarán todos los registros.', async (password) => {
-                try {
-                    const res = await fetch('/api/reset-sistema', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) {
-                        alert('✨ Sistema reseteado.');
-                        window.location.replace('/');
-                    } else { alert('❌ Contraseña incorrecta.'); }
-                } catch (error) { reportarErrorUI('restablecimiento del sistema', error, 'No se pudo completar el restablecimiento.', 'msgLimpieza'); }
-            });
-        }
     </script>
+    <script src="operacion-taller.js"></script>
 </body>
 </html>

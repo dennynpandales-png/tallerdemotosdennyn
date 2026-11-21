@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { promisify } = require('util');
 const { NOMBRE_TALLER, directorioDatosTaller } = require('./marca');
 const scrypt = promisify(crypto.scrypt);
+const { sendAppointmentConfirmation, sendResetCode, sendRecoveryNotice, whatsappNumber } = require('./whatsapp');
 
 const app = express();
 const sessions = new Map();
@@ -111,6 +112,9 @@ async function inicializarTablas(connection) {
         schema('ALTER TABLE usuarios ADD COLUMN cedula TEXT');
         schema('ALTER TABLE usuarios ADD COLUMN pregunta_seguridad TEXT');
         schema('ALTER TABLE usuarios ADD COLUMN respuesta_hash TEXT');
+        schema('ALTER TABLE usuarios ADD COLUMN debe_cambiar_password INTEGER NOT NULL DEFAULT 0');
+        schema('ALTER TABLE usuarios ADD COLUMN recuperacion_intentos INTEGER NOT NULL DEFAULT 0');
+        schema('ALTER TABLE usuarios ADD COLUMN recuperacion_ventana INTEGER NOT NULL DEFAULT 0');
         schema("CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_cedula_unique ON usuarios(cedula) WHERE cedula IS NOT NULL AND cedula <> ''");
 
         schema(`CREATE TABLE IF NOT EXISTS inventario (
@@ -121,6 +125,9 @@ async function inicializarTablas(connection) {
             precio_costo REAL,
             precio_venta REAL
         )`);
+        schema("ALTER TABLE inventario ADD COLUMN tipo TEXT NOT NULL DEFAULT 'REP'");
+        schema("ALTER TABLE inventario ADD COLUMN proveedor TEXT NOT NULL DEFAULT ''");
+        schema("ALTER TABLE inventario ADD COLUMN origen TEXT NOT NULL DEFAULT ''");
 
         schema(`CREATE TABLE IF NOT EXISTS ordenes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,6 +153,14 @@ async function inicializarTablas(connection) {
             FOREIGN KEY(repuesto_id) REFERENCES inventario(id)
         )`);
         schema('ALTER TABLE ordenes ADD COLUMN mano_obra_confirmada INTEGER NOT NULL DEFAULT 0');
+        schema("ALTER TABLE ordenes ADD COLUMN mano_obra_reporte TEXT NOT NULL DEFAULT ''");
+        schema('ALTER TABLE ordenes ADD COLUMN mano_obra_sugerida REAL');
+        schema(`CREATE TRIGGER IF NOT EXISTS fijar_precios_al_facturar AFTER UPDATE OF estado ON ordenes
+            WHEN NEW.estado = 'Facturada' AND OLD.estado <> 'Facturada' BEGIN
+                UPDATE detalle_orden_repuestos SET precio_unitario = (
+                    SELECT precio_venta FROM inventario WHERE id = repuesto_id
+                ) WHERE orden_id = NEW.id AND coalesce(precio_unitario,0) <= 0;
+            END`);
 
         schema(`CREATE TABLE IF NOT EXISTS solicitudes_repuestos_orden (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -167,6 +182,18 @@ async function inicializarTablas(connection) {
             hora_cita TEXT,
             motivo TEXT,
             estado TEXT DEFAULT 'Pendiente'
+        )`);
+        schema("ALTER TABLE citas ADD COLUMN whatsapp_estado TEXT NOT NULL DEFAULT ''");
+        schema("ALTER TABLE citas ADD COLUMN cliente_telefono TEXT NOT NULL DEFAULT ''");
+        schema('ALTER TABLE citas ADD COLUMN cliente_id INTEGER');
+        schema(`CREATE TABLE IF NOT EXISTS recuperaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER NOT NULL,
+            solicitada INTEGER NOT NULL,
+            vence INTEGER NOT NULL,
+            codigo_hash TEXT,
+            password_previa TEXT,
+            UNIQUE(usuario_id)
         )`);
 
         schema(`CREATE TABLE IF NOT EXISTS orden_fotos (
@@ -260,6 +287,8 @@ async function inicializarTablas(connection) {
             eslogan_taller TEXT DEFAULT 'Pasión y Precisión en Cada Kilómetro'
         )`);
         schema('ALTER TABLE configuracion ADD COLUMN backup_interval_min INTEGER DEFAULT 60');
+        schema("ALTER TABLE configuracion ADD COLUMN whatsapp_admin TEXT NOT NULL DEFAULT ''");
+        schema("ALTER TABLE configuracion ADD COLUMN impresora_formato TEXT NOT NULL DEFAULT 'auto'");
         schema("ALTER TABLE configuracion ADD COLUMN eslogan_taller TEXT DEFAULT 'Pasión y Precisión en Cada Kilómetro'");
     });
     await Promise.allSettled(statements).then(results => {
@@ -272,6 +301,11 @@ async function inicializarTablas(connection) {
         tarifa_400, tarifa_mas, backup_interval_min, eslogan_taller)
         VALUES (1, ?, '900123456-1', 'dark', 30000, 50000, 80000, 120000, 60, 'Pasión y Precisión en Cada Kilómetro')`, [NOMBRE_TALLER]);
     await run('UPDATE configuracion SET nombre_taller = ? WHERE nombre_taller IS NOT ?', [NOMBRE_TALLER, NOMBRE_TALLER]);
+    const [contact] = await queryAll(connection, 'SELECT telefono_taller, whatsapp_admin FROM configuracion WHERE id = 1');
+    const workshopPhone = whatsappNumber(contact?.telefono_taller);
+    if (workshopPhone && !contact.whatsapp_admin) {
+        await run("UPDATE configuracion SET whatsapp_admin = ? WHERE id = 1 AND coalesce(whatsapp_admin, '') = ''", [workshopPhone]);
+    }
 
     const users = await queryAll(connection, 'SELECT id, username, password FROM usuarios');
     if (!users.some(user => user.username === 'admin')) {
@@ -371,7 +405,7 @@ const sseClients = new Set();
 
 function broadcastSyncEvent(tipo, data = {}) {
     const payload = JSON.stringify({ tipo, data, timestamp: Date.now() });
-    const adminsOnly = tipo === 'backup_realizado' || (tipo === 'orden_actualizada' && data.accion === 'mano_obra_actualizada');
+    const adminsOnly = ['backup_realizado', 'recuperacion_actualizada'].includes(tipo) || (tipo === 'orden_actualizada' && data.accion === 'mano_obra_actualizada');
     for (const client of sseClients) {
         try {
             if (client.syncUser.expires < Date.now()) {
@@ -380,7 +414,7 @@ function broadcastSyncEvent(tipo, data = {}) {
             }
             if (adminsOnly && !isAdmin(client.syncUser)) continue;
             if (tipo === 'orden_terminada' && !isWorkshopDesk(client.syncUser)) continue;
-            if (client.syncUser.rol === 'Mecanico' && tipo !== 'asignacion_actualizada') {
+            if (client.syncUser.rol === 'Mecanico' && !['asignacion_actualizada', 'inventario_actualizado', 'sistema_reiniciado'].includes(tipo)) {
                 const orderId = data.ordenId || data.orden_id;
                 if (orderId) db.get('SELECT mecanico_id FROM ordenes WHERE id = ?', [orderId], (err, order) => {
                     if (!err && order?.mecanico_id === client.syncUser.id && !client.destroyed) client.write(`event: sync\ndata: ${payload}\n\n`);
@@ -432,15 +466,28 @@ app.get('/api/health', (_req, res) => {
 
 // Autenticación de usuarios
 app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body || {};
+    const { username, password, nuevaPassword } = req.body || {};
     if (!username || !password) return res.status(400).json({ mensaje: 'Usuario y contraseña requeridos.' });
     const user = await getRow('SELECT id, password FROM usuarios WHERE username = ?', [username]);
     if (!user || !await verifyPassword(password, user.password)) {
         return res.status(401).json({ mensaje: 'Usuario o contraseña incorrectos.' });
     }
-    const current = await getRow('SELECT id, nombre, rol, password FROM usuarios WHERE id = ? AND username = ?', [user.id, username]);
+    const current = await getRow('SELECT id, nombre, rol, password, debe_cambiar_password FROM usuarios WHERE id = ? AND username = ?', [user.id, username]);
     const rol = canonicalRole(current?.rol);
     if (!rol || current.password !== user.password) return res.status(401).json({ mensaje: 'Inicie sesión nuevamente.' });
+    if (current.debe_cambiar_password) {
+        if (nuevaPassword === undefined) return res.status(409).json({ requiereCambio: true, mensaje: 'Elige una contraseña nueva para continuar.' });
+        if (!validNewPassword(nuevaPassword) || nuevaPassword === password) {
+            return res.status(400).json({ mensaje: 'Usa entre 10 y 256 caracteres y elige una contraseña diferente de la temporal.' });
+        }
+        const hash = await hashPassword(nuevaPassword);
+        const changed = await runOrderQuery(`UPDATE usuarios SET password = ?, debe_cambiar_password = 0
+            WHERE id = ? AND username = ? AND rol = ? AND password = ? AND debe_cambiar_password = 1`,
+        [hash, current.id, username, current.rol, current.password]);
+        if (!changed.changes) return res.status(409).json({ mensaje: 'La cuenta cambió. Inicia sesión nuevamente.' });
+    } else if (nuevaPassword !== undefined) {
+        return res.status(409).json({ mensaje: 'La cuenta cambió. Inicia sesión nuevamente.' });
+    }
 
     const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, { id: current.id, nombre: current.nombre, username, rol, expires: Date.now() + 86400000 });
@@ -448,48 +495,153 @@ app.post('/api/login', async (req, res) => {
     res.json({ success: true, id: current.id, nombre: current.nombre, rol, permisos: rolePermissions[rol] });
 });
 
-// Recuperación / Restablecimiento de contraseña
-app.post('/api/recuperacion-pregunta', (req, res) => {
-    const { username, nombre, cedula } = req.body;
-    db.get('SELECT nombre, cedula, pregunta_seguridad FROM usuarios WHERE username = ?', [String(username || '').trim()], (error, user) => {
-        const identityMatches = user && user.cedula === String(cedula || '').trim() && normalizeIdentity(user.nombre) === normalizeIdentity(nombre);
-        if (error || !identityMatches || !user.pregunta_seguridad) return res.status(400).json({ success: false, mensaje: 'No hay datos de recuperación válidos para esa cuenta.' });
-        res.json({ success: true, pregunta_seguridad: user.pregunta_seguridad });
-    });
+const recoveryHash = value => crypto.createHash('sha256').update(value).digest('hex');
+const minutes = value => value * 60000;
+const validNewPassword = value => typeof value === 'string' && value.trim().length >= 10 && value.length <= 256;
+const securityAnswer = value => String(value || '').trim().toLocaleLowerCase('es');
+const verifiedRecoveryAnswers = new Map();
+
+async function findRecoveryAccount(body) {
+    const { username, nombre, cedula } = body || {};
+    if (![username, nombre, cedula].every(value => typeof value === 'string' && value.trim() && value.length <= 160)) return null;
+    const account = await getRow(`SELECT id, nombre, cedula, pregunta_seguridad, respuesta_hash, password
+        FROM usuarios WHERE username = ? AND cedula = ?`, [username.trim(), cedula.trim()]);
+    return account?.respuesta_hash && normalizeIdentity(account.nombre) === normalizeIdentity(nombre) ? account : null;
+}
+
+app.post('/api/recuperaciones/pregunta', async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const account = await findRecoveryAccount(req.body);
+    if (!account?.pregunta_seguridad) return res.status(400).json({ mensaje: 'No se encontró una pregunta con esos datos. Revisa tus datos o solicita ayuda al administrador.' });
+    res.json({ pregunta: account.pregunta_seguridad });
 });
 
-app.post('/api/seguridad/recuperacion-configurar', async (req, res) => {
-    const { username, password, cedula, pregunta_seguridad, respuesta_seguridad } = req.body;
-    if (!username || !password || !cedula || !pregunta_seguridad || !respuesta_seguridad) {
-        return res.status(400).json({ success: false, mensaje: 'Complete todos los campos de recuperación.' });
+app.post('/api/recuperaciones/respuesta', async (req, res) => {
+    const { respuesta_seguridad, username } = req.body || {};
+    const answer = securityAnswer(respuesta_seguridad);
+    const now = Date.now();
+    if (!answer || answer.length > 256) {
+        return res.status(400).json({ mensaje: 'Ingresa tu respuesta de seguridad.' });
     }
-    db.get('SELECT id, password FROM usuarios WHERE username = ?', [String(username).trim()], async (error, user) => {
-        if (error || !user || !(await verifyPassword(password, user.password))) {
-            return res.status(401).json({ success: false, mensaje: 'Usuario o contraseña incorrectos.' });
-        }
-        const answerHash = await hashPassword(String(respuesta_seguridad).trim().toLocaleLowerCase('es'));
-        db.run('UPDATE usuarios SET cedula = ?, pregunta_seguridad = ?, respuesta_hash = ? WHERE id = ?',
-            [String(cedula).trim(), String(pregunta_seguridad).trim(), answerHash, user.id], function(updateError) {
-                if (updateError) return res.status(400).json({ success: false, mensaje: 'La cédula ya está asignada o no se pudo guardar la recuperación.' });
-                res.json({ success: true, mensaje: 'Datos de recuperación configurados.' });
-            });
-    });
+    const account = await findRecoveryAccount(req.body);
+    const invalid = () => res.status(400).json({ mensaje: 'La respuesta o los datos de recuperación son incorrectos.' });
+    if (!account) return invalid();
+    const cutoff = now - minutes(15);
+    const attempt = await runOrderQuery(`UPDATE usuarios
+        SET recuperacion_intentos = CASE WHEN recuperacion_ventana <= ? THEN 1 ELSE recuperacion_intentos + 1 END,
+            recuperacion_ventana = CASE WHEN recuperacion_ventana <= ? THEN ? ELSE recuperacion_ventana END
+        WHERE id = ? AND (recuperacion_ventana <= ? OR recuperacion_intentos < 5)`,
+    [cutoff, cutoff, now, account.id, cutoff]);
+    if (!attempt.changes) return res.status(429).json({ mensaje: 'Se agotaron los intentos. Espera 15 minutos o solicita ayuda al administrador.' });
+    if (!await verifyPassword(answer, account.respuesta_hash)) return invalid();
+    const codigo = crypto.randomBytes(16).toString('hex');
+    const key = recoveryHash(codigo);
+    verifiedRecoveryAnswers.set(key, { account, username: username.trim(), expires: Date.now() + minutes(5) });
+    setTimeout(() => verifiedRecoveryAnswers.delete(key), minutes(5)).unref();
+    res.set('Cache-Control', 'no-store').json({ codigo, mensaje: 'Respuesta correcta. Elige una contraseña nueva.' });
 });
 
-app.post('/api/recuperar-password', (_req, res) => {
-    res.status(403).json({ success: false, mensaje: 'Solicite al administrador el restablecimiento de su contraseña.' });
+app.post('/api/recuperaciones/cambiar-por-pregunta', async (req, res) => {
+    const { username, codigo, nuevaPassword } = req.body || {};
+    if (!validNewPassword(nuevaPassword)) {
+        return res.status(400).json({ mensaje: 'Elige una contraseña de 10 a 256 caracteres.' });
+    }
+    const key = typeof codigo === 'string' && /^[a-f0-9]{32}$/.test(codigo) ? recoveryHash(codigo) : '';
+    const verification = verifiedRecoveryAnswers.get(key);
+    if (!verification || verification.expires <= Date.now() || username !== verification.username) {
+        return res.status(409).json({ mensaje: 'La validación venció. Vuelve a responder tu pregunta.' });
+    }
+    const { account } = verification;
+    const now = Date.now();
+    const password = await hashPassword(nuevaPassword);
+    if (verification.expires <= Date.now()) return res.status(409).json({ mensaje: 'La validación venció. Vuelve a responder tu pregunta.' });
+    const changed = await runOrderQuery(`UPDATE usuarios SET password = ?, debe_cambiar_password = 0,
+        recuperacion_intentos = 0, recuperacion_ventana = 0 WHERE id = ? AND username = ? AND password = ? AND respuesta_hash = ?`,
+    [password, account.id, username, account.password, account.respuesta_hash]);
+    verifiedRecoveryAnswers.delete(key);
+    if (!changed.changes) return res.status(409).json({ mensaje: 'La cuenta cambió. Vuelve a iniciar la recuperación.' });
+    invalidateUserSessions(account.id);
+    const removed = await runOrderQuery('DELETE FROM recuperaciones WHERE usuario_id = ? AND solicitada <= ?', [account.id, now]);
+    if (removed.changes) broadcastSyncEvent('recuperacion_actualizada');
+    res.json({ mensaje: 'Contraseña cambiada. Ya puedes iniciar sesión.' });
+});
+
+app.post('/api/recuperaciones/configurar', async (req, res) => {
+    const { username, password, cedula, pregunta_seguridad, respuesta_seguridad } = req.body || {};
+    const question = String(pregunta_seguridad || '').trim();
+    const answer = securityAnswer(respuesta_seguridad);
+    const document = String(cedula || '').trim();
+    if (typeof username !== 'string' || typeof password !== 'string' || !password || !document || document.length > 40 ||
+        !question || question.length > 160 || !answer || answer.length > 256) {
+        return res.status(400).json({ mensaje: 'Completa los datos de recuperación.' });
+    }
+    const user = await getRow('SELECT id, password, debe_cambiar_password FROM usuarios WHERE username = ?', [username.trim()]);
+    if (!user || user.debe_cambiar_password || !await verifyPassword(password, user.password)) {
+        return res.status(401).json({ mensaje: 'Verifica el usuario y la contraseña vigente.' });
+    }
+    try {
+        const changed = await runOrderQuery(`UPDATE usuarios SET cedula = ?, pregunta_seguridad = ?, respuesta_hash = ?,
+            recuperacion_intentos = 0, recuperacion_ventana = 0 WHERE id = ? AND username = ? AND password = ? AND debe_cambiar_password = 0`,
+        [document, question, await hashPassword(answer), user.id, username.trim(), user.password]);
+        if (!changed.changes) return res.status(409).json({ mensaje: 'La cuenta cambió. Vuelve a ingresar tus datos.' });
+        res.json({ mensaje: 'Pregunta de seguridad guardada.' });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ mensaje: 'La cédula ya está registrada en otra cuenta.' });
+        throw error;
+    }
+});
+
+app.post('/api/recuperaciones/solicitar', async (req, res) => {
+    const username = String(req.body?.username || '').trim();
+    if (!username || username.length > 128) return res.status(400).json({ mensaje: 'Ingresa tu usuario.' });
+    const now = Date.now();
+    const result = await runOrderQuery(`
+        INSERT INTO recuperaciones (usuario_id, solicitada, vence)
+        SELECT id, ?, ? FROM usuarios WHERE username = ?
+        ON CONFLICT(usuario_id) DO UPDATE SET solicitada=excluded.solicitada, vence=excluded.vence,
+            codigo_hash=NULL, password_previa=NULL WHERE recuperaciones.vence <= excluded.solicitada`,
+    [now, now + minutes(1440), username]);
+    if (result.changes) {
+        broadcastSyncEvent('recuperacion_actualizada');
+        if (process.env.WHATSAPP_RECOVERY_TEMPLATE) {
+            void adminWhatsapp().then(phone => sendRecoveryNotice(phone, username)).catch(error => console.error('[RECUPERACIÓN]', error.message));
+        }
+    }
+    res.status(202).json({ mensaje: 'Si la cuenta admite recuperación, el administrador recibirá tu solicitud. Pídele el código de acceso.' });
+});
+
+app.post('/api/recuperaciones/completar', async (req, res) => {
+    const { username, codigo, nuevaPassword } = req.body || {};
+    if (typeof codigo !== 'string' || !/^[a-f0-9]{32}$/i.test(codigo) ||
+        !validNewPassword(nuevaPassword)) {
+        return res.status(400).json({ mensaje: 'Ingresa el código y una contraseña de 10 a 256 caracteres.' });
+    }
+    const token = recoveryHash(codigo.toLowerCase());
+    const user = await getRow(`SELECT u.id FROM usuarios u JOIN recuperaciones r ON r.usuario_id = u.id
+        WHERE u.username = ? AND r.codigo_hash = ? AND r.vence > ? AND r.password_previa = u.password`,
+    [String(username || '').trim(), token, Date.now()]);
+    if (!user) return res.status(400).json({ mensaje: 'Código inválido o vencido.' });
+    const password = await hashPassword(nuevaPassword);
+    const changed = await runOrderQuery(`UPDATE usuarios SET password = ?, debe_cambiar_password = 0 WHERE id = ? AND username = ? AND EXISTS (
+        SELECT 1 FROM recuperaciones WHERE usuario_id = usuarios.id AND codigo_hash = ? AND vence > ?
+            AND password_previa = usuarios.password)`, [password, user.id, String(username || '').trim(), token, Date.now()]);
+    if (!changed.changes) return res.status(400).json({ mensaje: 'Código inválido o vencido.' });
+    invalidateUserSessions(user.id);
+    await runOrderQuery('DELETE FROM recuperaciones WHERE usuario_id = ? AND codigo_hash = ?', [user.id, token]);
+    broadcastSyncEvent('recuperacion_actualizada');
+    res.json({ mensaje: 'Contraseña cambiada. Ya puedes iniciar sesión.' });
 });
 
 const receptionRoutes = {
-    GET: /^\/(?:clientes|motos(?:\/\d+\/historial)?|mecanicos|ordenes(?:\/\d+\/(?:detalles|bitacora|fotos(?:\/\d+)?))?|citas|config|alertas-stock)$/,
-    POST: /^\/(?:clientes|motos|ordenes(?:\/\d+\/(?:seguimiento|whatsapp))?|citas(?:\/\d+\/convertir)?)$/,
-    PUT: /^\/(?:ordenes\/\d+\/(?:estado|asignacion)|alertas-stock\/(?:\d+\/leer|leer-todas))$/,
-    DELETE: /^\/ordenes\/\d+\/seguimiento$/
+    GET: /^\/(?:clientes|motos(?:\/\d+\/historial)?|mecanicos|ordenes(?:\/\d+\/(?:detalles|bitacora|fotos(?:\/\d+)?))?|citas|identidad|alertas-stock)$/,
+    POST: /^\/(?:clientes|motos|ordenes(?:\/\d+\/(?:seguimiento|whatsapp))?|citas(?:\/\d+\/(?:convertir|recordatorio))?)$/,
+    PUT: /^\/(?:ordenes\/\d+\/(?:estado|asignacion)|citas\/\d+|alertas-stock\/(?:\d+\/leer|leer-todas))$/,
+    DELETE: /^\/(?:ordenes\/\d+\/seguimiento|citas\/\d+)$/
 };
 const mechanicRoutes = {
     GET: /^(?:detalles|bitacora|fotos(?:\/\d+)?|solicitudes-repuestos)$/,
     POST: /^(?:repuestos|solicitudes-repuestos|fotos)$/,
-    PUT: /^(?:reportar|estado)$/
+    PUT: /^(?:reportar|reportar-mano-obra|estado)$/
 };
 
 app.use('/api', (req, res, next) => {
@@ -518,6 +670,24 @@ app.use('/api', (req, res, next) => {
     res.status(403).json({ mensaje: 'Acceso no permitido para este rol.' });
 });
 app.get('/api/session', (req, res) => res.json(req.user));
+app.get('/api/recuperaciones', async (_req, res) => {
+    res.json(await queryAll(db, `SELECT r.id, u.nombre, u.username, r.solicitada
+        FROM recuperaciones r JOIN usuarios u ON u.id = r.usuario_id
+        WHERE r.vence > ? AND r.codigo_hash IS NULL ORDER BY r.solicitada`, [Date.now()]));
+});
+
+app.post('/api/recuperaciones/:id/aprobar', async (req, res) => {
+    const codigo = crypto.randomBytes(16).toString('hex');
+    const now = Date.now();
+    const result = await runOrderQuery(`UPDATE recuperaciones SET codigo_hash = ?, vence = ?,
+        password_previa = (SELECT password FROM usuarios WHERE id = usuario_id)
+        WHERE id = ? AND usuario_id <> ? AND vence > ? AND codigo_hash IS NULL
+            AND EXISTS (SELECT 1 FROM usuarios WHERE id = usuario_id)`,
+    [recoveryHash(codigo), now + minutes(15), req.params.id, req.user.id, now]);
+    if (!result.changes) return res.status(409).json({ mensaje: 'La solicitud ya no está pendiente.' });
+    broadcastSyncEvent('recuperacion_actualizada');
+    res.json({ codigo });
+});
 app.post('/api/logout', (req, res) => {
     for (const [token, user] of sessions) if (user === req.user) sessions.delete(token);
     for (const client of sseClients) {
@@ -571,7 +741,7 @@ app.post('/api/motos', (req, res) => {
         });
 });
 
-const operationalOrderFields = 'ordenes.id, ordenes.moto_id, ordenes.mecanico_id, ordenes.tipo_mantenimiento, ordenes.motivo_ingreso, ordenes.trabajo_realizado, ordenes.estado, ordenes.fecha_ingreso';
+const operationalOrderFields = 'ordenes.id, ordenes.moto_id, ordenes.mecanico_id, ordenes.tipo_mantenimiento, ordenes.motivo_ingreso, ordenes.trabajo_realizado, ordenes.estado, ordenes.fecha_ingreso, ordenes.mano_obra_reporte';
 app.get('/api/motos/:id/historial', (req, res) => {
     db.all(`SELECT ${isAdmin(req.user) ? '*' : operationalOrderFields} FROM ordenes WHERE moto_id = ? ORDER BY id DESC`, [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -581,20 +751,48 @@ app.get('/api/motos/:id/historial', (req, res) => {
 
 // Inventario
 app.get('/api/inventario', (req, res) => {
-    db.all(`SELECT ${isAdmin(req.user) ? '*' : 'id, codigo, nombre, stock'} FROM inventario ORDER BY id DESC`, [], (err, rows) => {
+    const fields = isAdmin(req.user) ? '*' : 'id, codigo, nombre, stock, origen, tipo';
+    db.all(`SELECT ${fields} FROM inventario ORDER BY id DESC`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-app.post('/api/inventario', (req, res) => {
-    const { codigo, nombre, stock, precio_costo, precio_venta } = req.body;
-    db.run(`INSERT INTO inventario (codigo, nombre, stock, precio_costo, precio_venta) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(codigo) DO UPDATE SET nombre=excluded.nombre, stock=stock+excluded.stock, precio_costo=excluded.precio_costo, precio_venta=excluded.precio_venta`,
-        [codigo, nombre, stock, precio_costo, precio_venta], function(err) {
-            if (err) return res.status(500).json({ mensaje: 'Error al guardar repuesto' });
-            res.json({ success: true, mensaje: 'Repuesto guardado' });
-        });
+app.post('/api/inventario', async (req, res) => {
+    const { id, tipo = 'REP', origen = '' } = req.body;
+    const nombre = String(req.body.nombre || '').trim();
+    const referencia = String(req.body.codigo || '').trim().toUpperCase();
+    const proveedor = String(req.body.proveedor || '').trim();
+    const stock = tipo === 'MO' ? 0 : Number(req.body.stock);
+    const costo = Number(req.body.precio_costo);
+    const venta = req.body.precio_venta == null || req.body.precio_venta === '' ? null : Number(req.body.precio_venta);
+    if (!['REP', 'MO'].includes(tipo) || !['', 'Original', 'Genuino'].includes(origen) || !nombre ||
+        !Number.isSafeInteger(stock) || stock < 0 || !Number.isFinite(costo) || costo < 0 ||
+        (venta !== null && (!Number.isFinite(venta) || venta < 0))) {
+        return res.status(400).json({ mensaje: 'Revisa el tipo, el nombre, la cantidad y los precios.' });
+    }
+    const metadata = [nombre, stock, costo, venta, tipo === 'REP' ? proveedor : '', tipo === 'REP' ? origen : ''];
+    let codigo;
+    if (id) {
+        const item = await getRow('SELECT codigo, tipo FROM inventario WHERE id = ?', [id]);
+        if (!item || item.tipo !== tipo) return res.status(409).json({ mensaje: 'El artículo seleccionado ya no está disponible.' });
+        const updated = await runOrderQuery(`UPDATE inventario SET nombre=?, stock=coalesce(stock,0)+?,
+            precio_costo=?, precio_venta=?, proveedor=?, origen=? WHERE id=? AND tipo=?`, [...metadata, id, tipo]);
+        if (!updated.changes) return res.status(409).json({ mensaje: 'El artículo seleccionado ya no está disponible.' });
+        codigo = item.codigo;
+    } else {
+        const prefijo = tipo + '-';
+        codigo = prefijo + (referencia.replace(new RegExp('^' + prefijo), '') || crypto.randomBytes(5).toString('hex').toUpperCase());
+        try {
+            await runOrderQuery(`INSERT INTO inventario (nombre, stock, precio_costo, precio_venta, proveedor, origen, codigo, tipo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [...metadata, codigo, tipo]);
+        } catch (error) {
+            if (error.code === 'SQLITE_CONSTRAINT') return res.status(409).json({ mensaje: 'Ese código ya existe. Selecciónalo en el buscador para sumar existencias.' });
+            throw error;
+        }
+    }
+    broadcastSyncEvent('inventario_actualizado');
+    res.json({ success: true, codigo });
 });
 
 // Órdenes de Servicio
@@ -694,7 +892,7 @@ async function sendOrderPhoto(res, orderId, photoId, publishedOnly = false) {
     res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).type(type).send(buffer);
 }
 
-const getRow = (sql, params) => new Promise((resolve, reject) => {
+const getRow = (sql, params = []) => new Promise((resolve, reject) => {
     db.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
 });
 const getTimeline = order => new Promise((resolve, reject) => {
@@ -909,9 +1107,12 @@ app.put('/api/alertas-stock/leer-todas', (_req, res) => {
 });
 
 app.get('/api/ordenes/:id/detalles', (req, res) => {
-    const fields = isAdmin(req.user) ? 'd.*' : 'd.id, d.orden_id, d.repuesto_id, d.cantidad';
+    const fields = 'd.id, d.orden_id, d.repuesto_id, d.cantidad' + (isAdmin(req.user) ?
+        `, CASE WHEN o.estado = 'Facturada' OR d.precio_unitario > 0 THEN d.precio_unitario
+            ELSE nullif(inventario.precio_venta,0) END AS precio_unitario` : '');
     const query = `SELECT ${fields}, inventario.nombre as repuesto_nombre, inventario.codigo as repuesto_codigo
-        FROM detalle_orden_repuestos d JOIN inventario ON d.repuesto_id = inventario.id WHERE d.orden_id = ?`;
+        FROM detalle_orden_repuestos d JOIN inventario ON d.repuesto_id = inventario.id
+        JOIN ordenes o ON o.id = d.orden_id WHERE d.orden_id = ?`;
     db.all(query, [req.params.id], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
@@ -945,7 +1146,7 @@ app.post(['/api/ordenes/:id/repuestos', '/api/ordenes/:id/solicitudes-repuestos'
         const mechanicId = normalizeIdentity(req.user.rol) === 'mecanico' ? req.user.id : null;
         const order = await get(`SELECT id FROM ordenes WHERE id = ? AND estado = 'En proceso'
             AND (? IS NULL OR mecanico_id = ?)`, [ordenId, mechanicId, mechanicId]);
-        const part = await get('SELECT * FROM inventario WHERE id = ?', [repuestoId]);
+        const part = await get("SELECT * FROM inventario WHERE id = ? AND tipo = 'REP'", [repuestoId]);
         if (!order || !part) {
             await run('ROLLBACK'); transaction = false;
             return res.status(404).json({ mensaje: 'Orden abierta o repuesto no encontrado.' });
@@ -960,6 +1161,7 @@ app.post(['/api/ordenes/:id/repuestos', '/api/ordenes/:id/solicitudes-repuestos'
         }
         await run('COMMIT'); transaction = false;
         if (alerta) broadcastSyncEvent('alerta_stock', alerta);
+        broadcastSyncEvent('inventario_actualizado');
         broadcastSyncEvent('orden_actualizada', { ordenId, accion: 'repuesto_agregado' });
         res.json({ success: true, stock_insuficiente: !!alerta, stock_actual: part.stock - cantidad, mensaje: alerta ? 'Repuesto registrado y descontado. Administración ha sido alertada del faltante.' : 'Repuesto registrado y descontado del inventario.' });
     } catch (error) {
@@ -984,6 +1186,24 @@ app.put('/api/ordenes/:id/reportar', (req, res) => {
         broadcastSyncEvent('orden_actualizada', { ordenId: req.params.id, accion: 'avance_reportado' });
         res.json({ success: true });
     });
+});
+
+app.put('/api/ordenes/:id/reportar-mano-obra', async (req, res) => {
+    const { servicio_id, precio } = req.body || {};
+    const descripcion = String(req.body?.descripcion || '').trim();
+    const value = precio == null || precio === '' ? null : Number(precio);
+    const service = servicio_id ? await getRow("SELECT codigo, nombre FROM inventario WHERE tipo = 'MO' AND id = ?", [servicio_id]) : null;
+    if ((servicio_id && !service) || (!service && !descripcion) || descripcion.length > 500 ||
+        (value !== null && (!Number.isFinite(value) || value < 0))) {
+        return res.status(400).json({ mensaje: 'Selecciona un servicio o describe el trabajo. El precio es opcional.' });
+    }
+    const label = [service && `${service.codigo} · ${service.nombre}`, descripcion].filter(Boolean).join(' · ');
+    const assigned = isAdmin(req.user) ? null : req.user.id;
+    const changed = await runOrderQuery(`UPDATE ordenes SET mano_obra_reporte = ?, mano_obra_sugerida = ?, mano_obra_confirmada = 0
+        WHERE id = ? AND estado = 'En proceso' AND (? IS NULL OR mecanico_id = ?)`, [label, value, req.params.id, assigned, assigned]);
+    if (!changed.changes) return res.status(409).json({ mensaje: 'La orden ya no está activa o asignada.' });
+    broadcastSyncEvent('orden_actualizada', { ordenId: req.params.id, accion: 'mano_obra_reportada' });
+    res.json({ success: true });
 });
 
 app.put('/api/ordenes/:id/mano-obra', (req, res) => {
@@ -1012,12 +1232,19 @@ app.put('/api/ordenes/:id/mano-obra', (req, res) => {
 
 app.put('/api/ordenes/:id/facturar', (req, res) => {
     if (!isAdmin(req.user)) return res.sendStatus(403);
+    const value = req.body?.costo_mano_obra;
+    if (!['string', 'number'].includes(typeof value) || !String(value).trim() || !Number.isFinite(Number(value)) || Number(value) < 0) {
+        return res.status(400).json({ mensaje: 'Ingresa y confirma el precio de mano de obra antes de facturar.' });
+    }
     db.run(`UPDATE ordenes SET estado = 'Facturada'
         WHERE id = ? AND estado IN ('Terminada', 'Listo para entrega') AND mano_obra_confirmada = 1
-        AND costo_mano_obra = ?`,
+        AND costo_mano_obra = ? AND NOT EXISTS (
+            SELECT 1 FROM detalle_orden_repuestos d LEFT JOIN inventario i ON i.id = d.repuesto_id
+            WHERE d.orden_id = ordenes.id AND coalesce(d.precio_unitario,0) <= 0 AND coalesce(i.precio_venta,0) <= 0
+        )`,
         [req.params.id, req.body?.costo_mano_obra], function(err) {
             if (err) return res.status(500).json({ error: err.message });
-            if (!this.changes) return res.status(409).json({ mensaje: 'Confirma el valor vigente de mano de obra antes del cobro.' });
+            if (!this.changes) return res.status(409).json({ mensaje: 'Confirma el precio de mano de obra y asigna precio de venta a todos los repuestos antes de facturar.' });
             broadcastSyncEvent('orden_actualizada', { ordenId: req.params.id, accion: 'facturada' });
             res.json({ success: true });
         });
@@ -1025,20 +1252,63 @@ app.put('/api/ordenes/:id/facturar', (req, res) => {
 
 // Citas
 app.get('/api/citas', (_req, res) => {
-    db.all(`SELECT * FROM citas ORDER BY id DESC`, [], (err, rows) => {
+    db.all(`SELECT * FROM citas WHERE estado <> 'Cancelada' ORDER BY estado <> 'Pendiente', fecha_cita, hora_cita, id`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(rows);
     });
 });
 
-app.post('/api/citas', (req, res) => {
-    const { cliente_nombre, moto_placa, fecha_cita, hora_cita, motivo } = req.body;
-    if (!cliente_nombre || !moto_placa || !fecha_cita || !motivo) return res.status(400).json({ success: false, mensaje: 'Faltan campos.' });
-    db.run(`INSERT INTO citas (cliente_nombre, moto_placa, fecha_cita, hora_cita, motivo, estado) VALUES (?, ?, ?, ?, ?, 'Pendiente')`,
-        [cliente_nombre, moto_placa.toUpperCase(), fecha_cita, hora_cita || '08:00', motivo], function(err) {
-            if (err) return res.status(500).json({ success: false, mensaje: 'Error al guardar.' });
-            res.json({ success: true, mensaje: 'Cita agendada', id: this.lastID });
-        });
+async function saveAppointment(req, res) {
+    const id = req.params.id;
+    const { fecha_cita, hora_cita } = req.body;
+    const placa = String(req.body.moto_placa || '').trim().toUpperCase();
+    const nombre = String(req.body.cliente_nombre || '').trim();
+    const motivo = String(req.body.motivo || '').trim() || 'Servicio de taller';
+    const localDate = `${fecha_cita}T${hora_cita}:00`;
+    const date = new Date(localDate + 'Z');
+    if (!nombre || !placa || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:00$/.test(localDate) ||
+        !Number.isFinite(+date) || date.toISOString().slice(0, 19) !== localDate) {
+        return res.status(400).json({ mensaje: 'Ingresa cliente, placa y una fecha y hora válidas.' });
+    }
+    const cliente = await getRow(`SELECT c.id, c.nombre, c.telefono FROM clientes c JOIN motos m ON m.cliente_id = c.id
+        WHERE upper(m.placa) = ?`, [placa]) || await getRow('SELECT id, nombre, telefono FROM clientes WHERE id = ?', [req.body.cliente_id || null]);
+    const telefono = whatsappNumber(cliente?.telefono) || whatsappNumber(req.body.cliente_telefono);
+    const values = [cliente?.nombre || nombre, placa, fecha_cita, hora_cita, motivo, telefono, cliente?.id || null];
+    const saved = id
+        ? await runOrderQuery(`UPDATE citas SET cliente_nombre=?, moto_placa=?, fecha_cita=?, hora_cita=?,
+            motivo=?, cliente_telefono=?, cliente_id=?, whatsapp_estado='pendiente' WHERE id=? AND estado='Pendiente'`, [...values, id])
+        : await runOrderQuery(`INSERT INTO citas (cliente_nombre, moto_placa, fecha_cita, hora_cita, motivo,
+            cliente_telefono, cliente_id, whatsapp_estado) VALUES (?, ?, ?, ?, ?, ?, ?, 'pendiente')`, values);
+    if (!saved.changes) return res.status(409).json({ mensaje: 'La cita ya no está pendiente.' });
+    const citaId = Number(id || saved.lastID);
+    broadcastSyncEvent('citas_actualizadas');
+    const whatsapp = await sendAppointmentConfirmation(telefono, [values[0], placa, fecha_cita, hora_cita, motivo]);
+    await runOrderQuery(`UPDATE citas SET whatsapp_estado=? WHERE id=? AND fecha_cita=? AND hora_cita=?
+        AND moto_placa=? AND motivo=? AND cliente_telefono=? AND whatsapp_estado='pendiente'`,
+    [whatsapp, citaId, fecha_cita, hora_cita, placa, motivo, telefono]);
+    broadcastSyncEvent('citas_actualizadas');
+    res.json({ success: true, id: citaId, whatsapp });
+}
+
+app.post('/api/citas', saveAppointment);
+app.put('/api/citas/:id', saveAppointment);
+app.post('/api/citas/:id/recordatorio', async (req, res) => {
+    const cita = await getRow(`SELECT a.*, coalesce(actual.telefono, registrado.telefono) AS telefono_actual
+        FROM citas a LEFT JOIN motos m ON upper(m.placa) = upper(a.moto_placa)
+        LEFT JOIN clientes actual ON actual.id = m.cliente_id
+        LEFT JOIN clientes registrado ON registrado.id = a.cliente_id
+        WHERE a.id = ? AND a.estado = 'Pendiente'`, [req.params.id]);
+    if (!cita) return res.status(404).json({ mensaje: 'La cita ya no está pendiente.' });
+    const phone = whatsappNumber(cita.telefono_actual) || whatsappNumber(cita.cliente_telefono);
+    if (!phone) return res.status(400).json({ mensaje: 'Registra un número válido en el cliente para enviar el recordatorio.' });
+    const message = `Hola, ${cita.cliente_nombre}. Te recordamos tu cita en ${NOMBRE_TALLER} para la moto ${cita.moto_placa}, el ${cita.fecha_cita} a las ${cita.hora_cita} (hora de Colombia). Servicio: ${cita.motivo}.`;
+    res.json({ url: `https://wa.me/${phone}?text=${encodeURIComponent(message)}` });
+});
+app.delete('/api/citas/:id', async (req, res) => {
+    const result = await runOrderQuery("DELETE FROM citas WHERE id=? AND estado='Pendiente'", [req.params.id]);
+    if (!result.changes) return res.status(409).json({ mensaje: 'La cita ya no está pendiente.' });
+    broadcastSyncEvent('citas_actualizadas');
+    res.json({ success: true });
 });
 
 app.post('/api/citas/:id/convertir', async (req, res) => {
@@ -1059,14 +1329,16 @@ app.post('/api/citas/:id/convertir', async (req, res) => {
         }
         const cita = await get('SELECT * FROM citas WHERE id = ?', [req.params.id]);
         if (!cita) return res.status(404).json({ mensaje: 'Cita no encontrada.' });
-        if (cita.estado === 'Atendida') return res.status(409).json({ mensaje: 'La cita ya ingresó al taller.' });
+        if (cita.estado !== 'Pendiente') return res.status(409).json({ mensaje: 'La cita ya no está pendiente.' });
         const placa = cita.moto_placa.trim().toUpperCase();
         const existing = await get('SELECT id FROM motos WHERE upper(placa) = ?', [placa]);
         let motoId = existing?.id;
         if (!motoId) {
-            const client = await run('INSERT INTO clientes (nombre) VALUES (?)', [cita.cliente_nombre]);
+            const client = await get('SELECT id FROM clientes WHERE id = ?', [cita.cliente_id]);
+            const clienteId = client?.id || (await run('INSERT INTO clientes (nombre, telefono) VALUES (?, ?)',
+                [cita.cliente_nombre, cita.cliente_telefono])).lastID;
             const moto = await run("INSERT INTO motos (cliente_id, placa, marca, cilindraje, kilometraje) VALUES (?, ?, 'Genérica', 150, 0)",
-                [client.lastID, placa]);
+                [clienteId, placa]);
             motoId = moto.lastID;
         }
         const order = await run(`INSERT INTO ordenes (moto_id, mecanico_id, tipo_mantenimiento, motivo_ingreso, costo_mano_obra, trabajo_realizado, estado)
@@ -1075,6 +1347,7 @@ app.post('/api/citas/:id/convertir', async (req, res) => {
         await run('COMMIT');
         pending = false;
         broadcastSyncEvent('orden_actualizada', { ordenId: order.lastID, accion: 'creada' });
+        broadcastSyncEvent('citas_actualizadas');
         res.json({ success: true, orden_id: order.lastID });
     } finally {
         if (pending) await run('ROLLBACK').catch(() => undefined);
@@ -1220,27 +1493,42 @@ app.get('/api/reportes/detallado', (req, res) => {
 });
 
 // Configuración general
-app.get('/api/config', (req, res) => {
-    const fields = isAdmin(req.user) ? '*' : 'nombre_taller, eslogan_taller, tema';
-    db.get(`SELECT ${fields} FROM configuracion WHERE id = 1`, [], (_err, row) => {
-        res.json({ ...row, nombre_taller: NOMBRE_TALLER });
-    });
+app.get('/api/identidad', async (_req, res) => {
+    res.json({ ...await getRow('SELECT eslogan_taller, tema FROM configuracion WHERE id = 1'), nombre_taller: NOMBRE_TALLER });
 });
 
+app.get('/api/config', async (_req, res) => {
+    res.json({ ...await getRow('SELECT * FROM configuracion WHERE id = 1'), nombre_taller: NOMBRE_TALLER,
+        whatsapp_admin_configurado: Boolean(await adminWhatsapp()) });
+});
+
+async function adminWhatsapp() {
+    const config = await getRow('SELECT whatsapp_admin FROM configuracion WHERE id = 1');
+    return whatsappNumber(process.env.WHATSAPP_ADMIN_NUMBER) || whatsappNumber(config?.whatsapp_admin);
+}
+
 app.post('/api/config', (req, res) => {
-    const { nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre, backup_interval_min, eslogan_taller } = req.body;
+    const { nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre, impresora_formato, backup_interval_min, eslogan_taller, whatsapp_admin } = req.body;
+    const adminPhone = whatsappNumber(whatsapp_admin);
+    if (whatsapp_admin && !adminPhone) return res.status(400).json({ mensaje: 'Ingresa un WhatsApp válido para el administrador.' });
+    if (impresora_formato !== undefined && !['auto', 'media-carta', '58', '80'].includes(impresora_formato)) {
+        return res.status(400).json({ mensaje: 'El formato de impresión no es válido.' });
+    }
     const temasPermitidos = ['dark', 'dark-graphite', 'dark-emerald', 'light-amber', 'light-blue', 'light-emerald'];
     if (tema && !temasPermitidos.includes(tema)) return res.status(400).json({ success: false, mensaje: 'Tema visual no válido.' });
     
     db.run(`UPDATE configuracion SET 
-            nombre_taller=?, nit_taller=?, telefono_taller=?, email_taller=?, direccion_taller=?, tema=?, impresora_nombre=?,
+            nombre_taller=?, nit_taller=COALESCE(?,nit_taller), telefono_taller=COALESCE(?,telefono_taller),
+            email_taller=COALESCE(?,email_taller), direccion_taller=COALESCE(?,direccion_taller),
+            tema=COALESCE(?,tema), impresora_nombre=COALESCE(?,impresora_nombre), impresora_formato=COALESCE(?,impresora_formato),
             backup_interval_min=COALESCE(?, backup_interval_min),
-            eslogan_taller=COALESCE(?, eslogan_taller)
+            eslogan_taller=COALESCE(?, eslogan_taller),
+            whatsapp_admin=CASE WHEN coalesce(whatsapp_admin,'') = '' AND ? <> '' THEN ? ELSE whatsapp_admin END
             WHERE id = 1`,
         [
-            NOMBRE_TALLER, nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre,
+            NOMBRE_TALLER, nit_taller, telefono_taller, email_taller, direccion_taller, tema, impresora_nombre, impresora_formato,
             backup_interval_min !== undefined ? Number(backup_interval_min) : null,
-            eslogan_taller || null
+            eslogan_taller || null, adminPhone, adminPhone
         ], (err) => {
             if (err) return res.status(500).json({ error: err.message });
             if (backup_interval_min !== undefined) {
@@ -1438,8 +1726,8 @@ app.put('/api/usuarios/:id/password', async (req, res) => {
     const userId = req.params.id;
     const { nuevaPassword, adminPassword } = req.body;
 
-    if (!nuevaPassword || String(nuevaPassword).trim().length < 4) {
-        return res.status(400).json({ success: false, mensaje: 'La nueva contraseña debe tener al menos 4 caracteres.' });
+    if (!validNewPassword(nuevaPassword)) {
+        return res.status(400).json({ success: false, mensaje: 'La contraseña temporal debe tener entre 10 y 256 caracteres.' });
     }
 
     if (adminPassword) {
@@ -1452,17 +1740,14 @@ app.put('/api/usuarios/:id/password', async (req, res) => {
         }
     }
 
-    try {
-        const hash = await hashPassword(nuevaPassword);
-        db.run(`UPDATE usuarios SET password = ? WHERE id = ?`, [hash, userId], function(err) {
-            if (err) return res.status(500).json({ success: false, mensaje: 'Error al actualizar contraseña: ' + err.message });
-            if (!this.changes) return res.sendStatus(404);
-            if (Number(userId) !== req.user.id) invalidateUserSessions(Number(userId));
-            res.json({ success: true, mensaje: 'Contraseña actualizada exitosamente.' });
-        });
-    } catch (e) {
-        res.status(500).json({ success: false, mensaje: e.message });
-    }
+    const started = Date.now();
+    const hash = await hashPassword(nuevaPassword);
+    const changed = await runOrderQuery(`UPDATE usuarios SET password = ?, debe_cambiar_password = 1 WHERE id = ?`, [hash, userId]);
+    if (!changed.changes) return res.sendStatus(404);
+    invalidateUserSessions(Number(userId));
+    const removed = await runOrderQuery('DELETE FROM recuperaciones WHERE usuario_id = ? AND solicitada <= ?', [userId, started]);
+    if (removed.changes) broadcastSyncEvent('recuperacion_actualizada');
+    res.json({ success: true, mensaje: 'Contraseña temporal guardada. El usuario deberá cambiarla al iniciar sesión.' });
 });
 
 app.delete('/api/usuarios/:id', (req, res) => {
@@ -1482,32 +1767,68 @@ app.delete('/api/usuarios/:id', (req, res) => {
 });
 
 // Reset del sistema
-app.post('/api/reset-sistema', (req, res) => {
-    const { password } = req.body;
-    db.get(`SELECT * FROM usuarios WHERE username = 'admin'`, [], async (_err, admin) => {
-        const isMatch = admin && await verifyPassword(password, admin.password);
+const resetChallenges = new Map();
 
-        if (!isMatch) return res.status(401).json({ mensaje: 'Contraseña de administrador incorrecta.' });
-        db.serialize(() => {
-            db.run(`DELETE FROM solicitudes_repuestos_orden`);
-            db.run(`DELETE FROM detalle_orden_repuestos`);
-            db.run(`DELETE FROM orden_seguimiento_envios`);
-            db.run(`DELETE FROM orden_seguimiento`);
-            db.run(`DELETE FROM orden_bitacora`);
-            db.run(`DELETE FROM orden_fotos`);
-            db.run(`DELETE FROM ordenes`);
-            db.run(`DELETE FROM motos`);
-            db.run(`DELETE FROM clientes`);
-            db.run(`DELETE FROM citas`);
-            db.run(`DELETE FROM inventario`);
-            res.json({ success: true });
-        });
-    });
+app.post('/api/reset-sistema/codigo', async (req, res) => {
+    const admin = await getRow('SELECT password, rol FROM usuarios WHERE id = ?', [req.user.id]);
+    if (canonicalRole(admin?.rol) !== 'Administrador' || !await verifyPassword(req.body?.password, admin.password)) {
+        return res.status(401).json({ mensaje: 'Contraseña de administrador incorrecta.' });
+    }
+    if (resetChallenges.get(req.user.id)?.retryAfter > Date.now()) {
+        return res.status(429).json({ mensaje: 'Espera un minuto antes de solicitar otro código.' });
+    }
+    const phone = await adminWhatsapp();
+    if (!phone) return res.status(409).json({ mensaje: 'Configura el WhatsApp del administrador en el servidor.' });
+    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const challenge = { user: req.user, expires: Date.now() + minutes(5), retryAfter: Date.now() + minutes(1),
+        attempts: 5, hash: recoveryHash(code), phone, password: admin.password, ready: false };
+    resetChallenges.set(req.user.id, challenge);
+    const result = await sendResetCode(challenge.phone, code);
+    if (result !== 'aceptado') return res.status(503).json({ mensaje: 'WhatsApp no confirmó el envío del código de reinicio.' });
+    challenge.ready = true;
+    res.json({ success: true });
 });
 
-// Impresoras
-app.get('/api/impresoras', (_req, res) => {
-    res.json(['Impresora POS Termica 58mm', 'Impresora Facturación PDF', 'Microsoft Print to PDF']);
+app.post('/api/reset-sistema', async (req, res) => {
+    const challenge = resetChallenges.get(req.user.id);
+    const code = req.body?.codigo;
+    if (!challenge?.ready || challenge.user !== req.user || challenge.expires <= Date.now() || challenge.attempts <= 0) {
+        return res.status(403).json({ mensaje: 'Solicita un nuevo código de reinicio.' });
+    }
+    if (typeof code !== 'string' || !/^\d{6}$/.test(code) ||
+        !crypto.timingSafeEqual(Buffer.from(challenge.hash, 'hex'), Buffer.from(recoveryHash(code), 'hex'))) {
+        challenge.attempts -= 1;
+        return res.status(403).json({ mensaje: `Código incorrecto. Intentos restantes: ${challenge.attempts}.` });
+    }
+    challenge.ready = false;
+    const connection = new sqlite3.Database(dbFile);
+    connection.configure('busyTimeout', 10000);
+    const run = (sql, params) => runOrderQuery(sql, params, connection);
+    let transaction = false;
+    try {
+        await run('BEGIN IMMEDIATE');
+        transaction = true;
+        const [current] = await queryAll(connection, `SELECT u.password, u.rol, c.whatsapp_admin
+            FROM usuarios u CROSS JOIN configuracion c WHERE u.id = ? AND c.id = 1`, [req.user.id]);
+        const configuredPhone = whatsappNumber(process.env.WHATSAPP_ADMIN_NUMBER) || whatsappNumber(current?.whatsapp_admin);
+        if (current?.password !== challenge.password || canonicalRole(current?.rol) !== 'Administrador' ||
+            configuredPhone !== challenge.phone || restoring) {
+            return res.status(409).json({ mensaje: 'La configuración de seguridad cambió. Solicita otro código.' });
+        }
+        for (const table of ['solicitudes_repuestos_orden', 'detalle_orden_repuestos', 'alertas_stock',
+            'orden_seguimiento_envios', 'orden_seguimiento', 'orden_bitacora', 'orden_fotos', 'ordenes',
+            'motos', 'clientes', 'citas', 'inventario', 'recuperaciones']) {
+            await run(`DELETE FROM ${table}`);
+        }
+        await run('COMMIT');
+        transaction = false;
+        resetChallenges.clear();
+        broadcastSyncEvent('sistema_reiniciado');
+        res.json({ success: true });
+    } finally {
+        if (transaction) await run('ROLLBACK').catch(() => undefined);
+        connection.close();
+    }
 });
 
 app.use('/api', (error, _req, res, next) => {

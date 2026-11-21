@@ -1,0 +1,102 @@
+.workshop-results {
+    max-height: 12rem;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: .4rem;
+    padding: .25rem;
+    background: var(--bg-input);
+}
+
+.workshop-results > button {
+    display: block;
+    width: 100%;
+    margin: .15rem 0;
+    text-align: left;
+}
+
+.workshop-notice {
+    margin-block: .5rem;
+    padding: .65rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: .5rem;
+    background: var(--bg-input);
+}
+
+output.workshop-notice:not([hidden]), #estadoVistaFactura { display: block; }
+
+.recovery-alarm, .recovery-alarm > button {
+    border-color: #ef4444;
+    background: #7f1d1d;
+    color: white;
+}
+
+.recovery-alarm-title {
+    border-inline-start: 4px solid #ef4444;
+    padding: .45rem .65rem;
+    background: #7f1d1d;
+    color: white;
+}
+
+#formCita [hidden], #formInventario [hidden], #modalReinicio [hidden] {
+    display: none;
+}
+
+#modalReinicio input {
+    display: block;
+    margin-block: .4rem;
+}
+
+.invoice-dialog {
+    width: min(58rem, 94vw);
+    border: 1px solid var(--border-color);
+    border-radius: .75rem;
+    padding: 1rem;
+    color: var(--text-color, #eef2ff);
+    background: var(--bg-input, #182131);
+}
+
+.invoice-dialog::backdrop { background: #030712b3; }
+.invoice-toolbar { display: flex; align-items: center; gap: .6rem; }
+.invoice-toolbar h2 { margin: 0 auto 0 0; }
+#documentoFactura { width: 100%; height: 70vh; border: 0; background: white; }
+
+.invoice-page {
+    margin: 0;
+    padding: 1rem;
+    font: 15px/1.5 system-ui, sans-serif;
+    color: #142135;
+    background: #e9eef4;
+}
+
+.invoice-sheet { max-width: 52rem; margin: auto; background: white; }
+.invoice-brand {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 1.25rem;
+    color: white;
+    background: linear-gradient(100deg, #101f32f5, #101f32bb), url('/workshop-background.jpg') center 43% / cover #101f32;
+}
+.invoice-brand img { object-fit: contain; }
+.invoice-content { padding: clamp(.75rem, 4vw, 2rem); }
+.invoice-content h1 { margin: 0 0 1rem; font-size: clamp(1.35rem, 4vw, 2rem); }
+.invoice-content dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; }
+.invoice-content dt { font-weight: 650; }
+.invoice-content dd { margin: 0; overflow-wrap: anywhere; }
+.invoice-content table { width: 100%; border-collapse: collapse; font-size: .9em; }
+.invoice-content th, .invoice-content td { border-bottom: 1px solid #d5dfe8; padding: .55rem .3rem; text-align: right; }
+.invoice-content th:first-child, .invoice-content td:first-child { text-align: left; overflow-wrap: anywhere; }
+.invoice-content tr { break-inside: avoid; }
+.invoice-total { text-align: right; font-size: 1.2em; }
+.invoice-total strong { margin-inline-start: .75rem; }
+
+@media print {
+    @page { size: 5.5in 8.5in; margin: 7mm; }
+    .invoice-page { background: white; padding: 0; }
+    .invoice-brand { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .invoice-brand { padding: .65rem; }
+    .invoice-brand img { width: 44px; height: 44px; }
+    .invoice-content { padding: .55rem 0; font-size: 12px; }
+    .invoice-content h1 { font-size: 20px; margin-bottom: .5rem; }
+    .invoice-content th, .invoice-content td { padding: .25rem .15rem; }
+}

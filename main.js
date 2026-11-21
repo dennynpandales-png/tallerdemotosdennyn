@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
 const { directorioDatosTaller } = require('./marca');
 const BACKEND_HOST = '127.0.0.1';
 let backendPort;
+const invoicePreviews = new Set();
 
 // Configurar variables de entorno antes de cargar módulos
 if (process.env.WORKSHOP_DATA_DIR || app.isPackaged) {
@@ -163,6 +164,90 @@ function reportStartupError(error) {
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
+    }
+});
+
+function isDashboardFrame(event) {
+    const origin = `http://${BACKEND_HOST}:${backendPort}`;
+    return mainWindow && event.sender === mainWindow.webContents && event.senderFrame?.url === origin + '/dashboard.html';
+}
+
+ipcMain.handle('factura:impresoras', async event => {
+    if (!isDashboardFrame(event)) return [];
+    const printers = await event.sender.getPrintersAsync();
+    return printers.map(({ name, displayName }) => ({ name, label: displayName || name }));
+});
+
+ipcMain.handle('factura:abrirVistaImpresion', async (event, markup, options = {}) => {
+    const origin = `http://${BACKEND_HOST}:${backendPort}`;
+    if (!isDashboardFrame(event) || typeof markup !== 'string' ||
+        !markup.startsWith('<!doctype html>') || Buffer.byteLength(markup) > 2_000_000) {
+        throw new Error('No se pudo preparar el documento de impresión.');
+    }
+    const { printerName, format, direct } = options || {};
+    const printer = printerName && (await event.sender.getPrintersAsync()).find(item => item.name === printerName);
+    if (direct && printerName && !printer) throw new Error('La impresora seleccionada no está disponible.');
+    const printerLabel = [printerName, printer?.displayName].join(' ');
+    const thermalWidth = format === '58' || format === '80' ? Number(format) :
+        (format !== 'media-carta' && /t[eé]rm|thermal|(?:\bPOS\b)|(?:\bTM[- ]?[TMU]\d)|(?:\bTSP\d)|\b(?:58|80)\s*mm/i.test(printerLabel)
+            ? (/58/.test(printerLabel) ? 58 : 80) : 0);
+    const preview = new BrowserWindow({ show: false, webPreferences: {
+        sandbox: true, nodeIntegration: false, contextIsolation: true
+    } });
+    preview.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    let directory;
+    try {
+        const load = style => {
+            const html = markup.replace('<meta charset="utf-8">',
+                `<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' ${origin}; img-src ${origin}; base-uri ${origin}"><base href="${origin}/">`)
+                .replace('</body>', `<style>${style}</style></body>`);
+            return preview.loadURL('data:text/html;charset=utf-8;base64,' + Buffer.from(html).toString('base64'));
+        };
+        let pageSize = { width: 139700, height: 215900 };
+        if (thermalWidth) {
+            const style = `body.invoice-page { width: ${thermalWidth - 6}mm; padding: 0; }
+                body .invoice-brand { padding: 2mm; gap: 2mm; color: black; background: white; }
+                body .invoice-brand img { width: 10mm; height: 10mm; }
+                body .invoice-content { padding: 2mm 0; font-size: 9px; }
+                body .invoice-content h1 { font-size: 12px; }
+                body .invoice-content td, body .invoice-content th { padding: 1mm 0.5mm; overflow-wrap: anywhere; }
+                body .invoice-content table { table-layout: fixed; }`;
+            await load(style);
+            const pixels = await preview.webContents.executeJavaScript("document.getElementById('documento-venta').getBoundingClientRect().height");
+            const height = Math.max(45, Math.ceil(pixels * 25.4 / 96) + 9);
+            pageSize = { width: thermalWidth * 1000, height: height * 1000 };
+            await load(style + `@page { size: ${thermalWidth}mm ${height}mm; margin: 3mm; }`);
+        } else {
+            await load('');
+        }
+        if (direct && printer) {
+            await new Promise((resolve, reject) => preview.webContents.print({
+                silent: true, deviceName: printer.name, printBackground: !thermalWidth, pageSize,
+                margins: { marginType: 'none' }
+            }, (success, reason) => success ? resolve() : reject(new Error(reason || 'No se pudo imprimir.'))));
+            return 'impresa';
+        }
+        const pdf = await preview.webContents.printToPDF({ printBackground: !thermalWidth, preferCSSPageSize: true });
+        directory = await fs.promises.mkdtemp(path.join(app.getPath('temp'), 'hidep-factura-'));
+        const file = path.join(directory, 'Factura.pdf');
+        await fs.promises.writeFile(file, pdf);
+        const error = await shell.openPath(file);
+        if (error) throw new Error('Windows no pudo abrir el lector de PDF.');
+        invoicePreviews.add(directory);
+        return 'pdf';
+    } catch (error) {
+        if (directory) await fs.promises.rm(directory, { recursive: true, force: true }).catch(() => {});
+        throw error;
+    } finally {
+        preview.destroy();
+    }
+});
+
+app.on('quit', () => {
+    for (const directory of invoicePreviews) {
+        try { fs.rmSync(directory, { recursive: true, force: true }); } catch (error) {
+            console.warn('[FACTURA] No se pudo retirar un archivo temporal:', error.code);
+        }
     }
 });
 
